@@ -417,7 +417,6 @@
     }
 
     .tag-received { background: #dfeadf; color: #2c5136; }
-    .tag-sent { background: #dce9f3; color: var(--blue); }
     .tag-cancelled { background: #ece7e2; color: var(--muted); }
 
     /* ---------- returning guest ---------- */
@@ -782,7 +781,7 @@
      * Backend — Apps Script web app bound to the "Bishan Renovation" sheet.
      * Redeploying a new version keeps this URL, so it rarely changes.
      * ------------------------------------------------------------------ */
-    var API_URL = "https://script.google.com/macros/s/AKfycbzI0kK9xmKP_4rTyjQL38R2hzmxxmkxsC0ZI6GAsIFghNzmNip-lvOvHRYHgGdufHnS/exec";
+    var API_URL = "https://script.google.com/macros/s/AKfycbyumQuwmlC48dL_peQWGgcYFpUGdl9xPTx-Y_ZhoW6RyNn3zXVh5mjd8I7u8Bb_0a3K/exec";
 
     var STORE_KEY = "nest-key";
     var STORE_TOKEN = "nest-token";
@@ -885,6 +884,16 @@
       var why = $("whyCash");
       if (settings.why_cash) { why.textContent = settings.why_cash; } else { why.classList.add("hidden"); }
 
+      // Deliberately above the `closed` early return below — friends should
+      // still be able to reach us once pledges are closed.
+      var wa = $("navWhatsApp");
+      if (settings.whatsapp_url) {
+        wa.href = settings.whatsapp_url;
+        wa.classList.remove("hidden");
+      } else {
+        wa.classList.add("hidden");
+      }
+
       if (settings.closed) {
         $("pledgeBody").classList.add("hidden");
         $("pledgeClosed").innerHTML = "<p>" + escapeHtml(settings.closed_message || "Pledges are closed.") + "</p>";
@@ -972,10 +981,33 @@
       return parts.join("");
     }
 
+    /**
+     * Renders nothing at all when whatsapp_number is unset, so the page is
+     * never left with a dead button waiting for config.
+     */
+    function whatsAppBlock(lead) {
+      var url = state.settings && state.settings.whatsapp_url;
+      if (!url) return "";
+      return '<p class="hint" style="margin-top:18px;">' + escapeHtml(lead) + " "
+        + '<a class="btn-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">'
+        + "Message us on WhatsApp</a></p>";
+    }
+
+    // A friend who has told us they sent it is done. We take their word for
+    // it rather than parking them behind our bookkeeping.
+    function isSettled(pledge) {
+      return pledge.status === "Received" || !!pledge.claims_paid_on;
+    }
+
+    // What they actually sent, when they told us; otherwise what they pledged.
+    function paidAmount(pledge) {
+      var claimed = Number(pledge.claimed_amount_sgd);
+      return isFinite(claimed) && claimed > 0 ? claimed : Number(pledge.amount_sgd || 0);
+    }
+
     function statusTag(pledge) {
-      if (pledge.status === "Received") return '<span class="tag tag-received">Received &mdash; thank you</span>';
       if (pledge.status === "Cancelled") return '<span class="tag tag-cancelled">Cancelled</span>';
-      if (pledge.claims_paid_on) return '<span class="tag tag-sent">You marked this sent</span>';
+      if (isSettled(pledge)) return '<span class="tag tag-received">Sent &mdash; thank you</span>';
       return '<span class="tag">Not sent yet</span>';
     }
 
@@ -1002,42 +1034,56 @@
       $("navMine").classList.remove("hidden");
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
 
-      var open = mine.pledges.filter(function (pledge) { return pledge.status === "Pledged"; });
-      var confirmed = mine.pledges.filter(function (pledge) { return pledge.status === "Received"; });
-      var confirmedTotal = confirmed.reduce(function (sum, pledge) { return sum + Number(pledge.amount_sgd || 0); }, 0);
-      var openTotal = open.reduce(function (sum, pledge) { return sum + Number(pledge.amount_sgd || 0); }, 0);
+      var live = mine.pledges.filter(function (pledge) { return pledge.status !== "Cancelled"; });
+      var settled = live.filter(isSettled);
+      var outstanding = live.filter(function (pledge) { return !isSettled(pledge); });
+      var settledTotal = settled.reduce(function (sum, pledge) { return sum + paidAmount(pledge); }, 0);
+      var outstandingTotal = outstanding.reduce(function (sum, pledge) { return sum + Number(pledge.amount_sgd || 0); }, 0);
 
+      // Nothing here says "we are checking" — there is no verification step
+      // the friend is waiting on.
       var summary = [];
-      if (confirmedTotal) summary.push(money(confirmedTotal) + " received — thank you");
-      if (openTotal) {
-        summary.push(open.some(function (pledge) { return pledge.claims_paid_on; })
-          ? money(openTotal) + " sent, we are still checking our bank"
-          : money(openTotal) + " still to transfer");
-      }
+      if (settledTotal) summary.push("You sent " + money(settledTotal) + " — thank you");
+      if (outstandingTotal) summary.push(money(outstandingTotal) + " still to transfer");
       $("mineSubtitle").textContent = summary.join(" · ") || "Only you can see this.";
 
       $("mineRows").innerHTML = mine.pledges.map(function (pledge) {
-        var open = pledge.status === "Pledged";
+        var live = pledge.status !== "Cancelled";
+        var done = isSettled(pledge);
+        var id = escapeHtml(pledge.pledge_id);
         var actions = [];
-        if (open && !pledge.claims_paid_on) {
-          actions.push('<button class="btn" type="button" data-sent="' + escapeHtml(pledge.pledge_id) + '">I\'ve sent it</button>');
+
+        if (live && !done) {
+          actions.push('<button class="btn" type="button" data-sent="' + id
+            + '" data-amount="' + escapeHtml(String(pledge.amount_sgd)) + '">I\'ve sent it</button>');
         }
-        if (open) {
-          actions.push('<button class="btn-link" type="button" data-amend="' + escapeHtml(pledge.pledge_id) + '">Change amount</button>');
-          actions.push('<button class="btn-link" type="button" data-cancel="' + escapeHtml(pledge.pledge_id) + '">Cancel</button>');
+        if (live && pledge.status !== "Received") {
+          actions.push('<button class="btn-link" type="button" data-amend="' + id + '">Change amount</button>');
+          actions.push('<button class="btn-link" type="button" data-cancel="' + id + '">Cancel</button>');
         }
 
+        // Once sent, lead with what they gave, not what they promised.
+        var figure = done ? paidAmount(pledge) : pledge.amount_sgd;
+        var note = done && paidAmount(pledge) !== Number(pledge.amount_sgd)
+          ? "Pledged " + money(pledge.amount_sgd)
+          : "Reference " + pledge.reference_code;
+
         return '<div class="pledge-row">'
-          + "<div><strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong> " + statusTag(pledge)
-          + '<p class="hint">Reference ' + escapeHtml(pledge.reference_code) + "</p></div>"
+          + "<div><strong>" + escapeHtml(money(figure)) + "</strong> " + statusTag(pledge)
+          + '<p class="hint">' + escapeHtml(note) + "</p></div>"
           + '<div class="row-actions">' + actions.join("") + "</div>"
           + "</div>";
       }).join("");
 
-      var unpaid = mine.pledges.filter(function (pledge) { return pledge.status === "Pledged"; });
+      // Only show payment instructions to someone who still has something to
+      // pay. Showing the QR to a friend who already transferred — which is
+      // what this did — reads as though we did not believe them.
+      var unpaid = mine.pledges.filter(function (pledge) {
+        return pledge.status !== "Cancelled" && !isSettled(pledge);
+      });
       $("minePayNow").innerHTML = unpaid.length
         ? '<div class="paynow" style="margin-top:18px;">' + payNowHtml(unpaid[0], mine.paynow) + "</div>"
-        : "";
+        : whatsAppBlock("Anything to ask us?");
     }
 
     function renderConfirmation(pledge, paynow) {
@@ -1051,10 +1097,13 @@
         + "</strong> is noted, and we have emailed you these details too.</p></div>"
         + '<div class="panel"><div class="paynow">' + payNowHtml(pledge, paynow) + "</div>"
         + '<div style="margin-top:18px;">'
-        + '<button class="btn" type="button" data-sent="' + escapeHtml(pledge.pledge_id) + '">'
+        + '<button class="btn" type="button" data-sent="' + escapeHtml(pledge.pledge_id)
+        + '" data-amount="' + escapeHtml(String(pledge.amount_sgd)) + '">'
         + "I&rsquo;ve sent it</button>"
-        + '<p class="hint">Tap this once you have transferred, so we know to look out for it. '
-        + "You can always come back to this page to check.</p></div></div>";
+        + '<p class="hint">Tap this once you have transferred and you are done — '
+        + "nothing else to wait for. You can come back to this page any time.</p>"
+        + whatsAppBlock("Something not right?")
+        + "</div></div>";
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -1253,9 +1302,15 @@
 
       var sent = target.closest("[data-sent]");
       if (sent) {
+        // Prefilled with what they pledged, so the usual case is one tap and
+        // sending a different amount is still possible.
+        var said = window.prompt("How much did you send? (SGD)", sent.dataset.amount || "");
+        if (said === null) return;
+        var paid = Number(String(said).replace(/[^0-9.]/g, ""));
+        if (!isFinite(paid) || paid <= 0) { showToast("That is not an amount we can use."); return; }
         sent.disabled = true;
-        mutate({ action: "sent", magic_token: MAGIC_TOKEN, pledge_id: sent.dataset.sent },
-          "Thank you — we will look out for it.", sent);
+        mutate({ action: "sent", magic_token: MAGIC_TOKEN, pledge_id: sent.dataset.sent, amount_sgd: paid },
+          "Thank you, truly.", sent);
         return;
       }
 

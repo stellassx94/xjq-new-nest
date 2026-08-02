@@ -28,7 +28,7 @@ It has 30+ tabs from the whole renovation. Only these have anything to do with t
 |---|---|---|
 | `New Nest — Start Here` | Navigation, plus a live preview of the item list | Read only |
 | `Pledges` | Append-only log — one row per pledge. **This is the source of truth.** | Only the `status`, `received_on`, `received_amount_sgd`, `notes` columns |
-| `claims_paid_on` (in `Pledges`) | A friend saying "I've sent it". A claim, never a confirmation — it never sets `status` | Read only |
+| `claims_paid_on` / `claimed_amount_sgd` (in `Pledges`) | A friend saying "I've sent it" and how much. Trusted as done; never sets `status` | Read only |
 | `Pledge Dashboard` | **Formulas.** Totals at the top, one row per pledge below, all live | Read only — but safe to add your own columns to the right |
 | `Pledge Config` | Key/value settings for the public page | Yes, this is your control panel |
 | `Registry Items` | **Controls the "What it goes toward" section.** Nothing else feeds it | Yes — see the column table below |
@@ -52,6 +52,7 @@ It has 30+ tabs from the whole renovation. Only these have anything to do with t
 | `site_password` | `xjq-bishan`. The link you share carries it, so friends never see a login |
 | `closed` | `TRUE` stops new pledges and shows `closed_message` |
 | `thank_you_message` | Optional extra line in thank-you emails |
+| `whatsapp_number` | **Blank — fill this in.** Full international form, e.g. `6591234567`. Switches on the "Message us" button for friends. Anyone with the page link can see it |
 
 ## Controlling the item section
 
@@ -77,17 +78,23 @@ Prices are stored but deliberately **not shown** on the page — for the same re
 2. They enter name, email and any amount, plus an optional note.
 3. They get a **reference code** (`NEST-4KQ2`) with the PayNow QR on screen, and the same in an email.
 4. They transfer whenever they like, putting the reference code in the PayNow reference field.
-5. "Email me my pledge link" sends a private link to a page showing their own pledges, the QR again if unpaid, and a cancel button. Links last 30 days; requesting a new one re-issues the token.
+5. When they have transferred they tap **"I've sent it"** and confirm the amount. That closes the loop for them — the QR disappears and the row turns green. Nothing waits on you.
+6. "Email me my pledge link" sends a private link to a page showing their own pledges, the QR only if still unpaid, and a cancel button. Links last 30 days; requesting a new one re-issues the token.
 
 The page never shows who gave how much — only first names and a count.
 
 ## Your routine
 
-**Reconciling (the only recurring chore).** Open your bank transaction list, match the reference code in each transfer to the row in `Pledges`, and set `status` to `Received`. Fill `received_amount_sgd` only if they sent a different amount from what they pledged. The dashboard follows automatically.
+**You do not confirm payments. That is deliberate.** PayNow gives individuals no API, webhook or notification — no bank will ever tell this site that money arrived, so confirming would mean you reading a statement line by line. Instead, when a friend taps **"I've sent it"** and says how much, we take their word for it. Their side is finished immediately; nothing waits on you.
 
-**Thanking.** `New Nest Pledges` → `Send thank-you emails`. It emails everyone marked `Received` who hasn't been thanked yet, then stamps `thanked_on` so nobody gets thanked twice. Gmail caps at ~100 emails/day; it sends 40 per run and tells you how many are left.
+That claim lands in `claims_paid_on` and `claimed_amount_sgd`. It **never** sets `status`, so if you ever do want to check a transfer against your bank you still can — set `status` to `Received` and it takes priority. Nothing depends on you doing it.
 
-**Chasing.** The dashboard highlights anything still `Pledged` after 7 days in amber. There is no auto-nudge — a personal message lands better anyway.
+**Thanking (the only real chore, and it is a nice one).** Two ways:
+
+- **WhatsApp** — the `Thank on WhatsApp` column in `Pledge Dashboard`. One click opens WhatsApp with a message already typed, naming them. Pick the friend, hit send. No phone numbers are stored anywhere.
+- **Email** — `New Nest Pledges` → `Send thank-you emails`. Goes to everyone who said they sent it (or that you marked `Received`) and has not been thanked, then stamps `thanked_on` so nobody is thanked twice. ~40 per run, Gmail caps around 100/day.
+
+**Nudging.** Amber rows are people who pledged over a week ago and have not said they sent anything. It is a prompt for a friendly message, not a debt — and plenty of them will simply have forgotten to tap the button.
 
 **Someone changed their mind.** They can cancel from their own link, or you set `status` to `Cancelled`. Cancelled rows drop out of every total but stay in the log.
 
@@ -99,8 +106,8 @@ The script is authorized and running. **What is left — things only you can do.
 
 1. **Fill in two blanks** in `Pledge Config`: `paynow_number` and `paynow_name`. The QR alone works, but showing the number reassures people they are paying the right person.
 2. **Rewrite `why_cash` in your own voice.** The current text is a placeholder written by me. It is the warmest thing on the page and it should sound like you.
-3. **Clear the test rows** in `Pledges` — set the "test" and "test22" rows to `Cancelled`.
-4. **Hide two dead tabs**: right-click `Registry Responses` and `Registry Summary` → Hide sheet. They are leftovers from the old claim-based registry. (No API can hide a tab, so this one is manual.)
+4. **Fill in `whatsapp_number`** in `Pledge Config` if you want the "Message us" button on the site.
+5. **Hide two dead tabs**: right-click `Registry Responses` and `Registry Summary` → Hide sheet. They are leftovers from the old claim-based registry. (No API can hide a tab, so this one is manual.)
 
 Then open https://stellassx94.github.io/xjq-new-nest/, make one test pledge to yourself, check the email arrives, and set that row's `status` to `Cancelled`.
 
@@ -144,4 +151,4 @@ Item scraping still belongs to the **older** registry script bound to the same s
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbzI0kK9xmKP_4rTyjQL38R2hzmxxmkxsC0ZI6GAsIFghNzmNip-lvOvHRYHgGdufHnS/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbyumQuwmlC48dL_peQWGgcYFpUGdl9xPTx-Y_ZhoW6RyNn3zXVh5mjd8I7u8Bb_0a3K/exec` |

@@ -68,6 +68,13 @@ const PLEDGE_COLUMNS = [
   // the bank statement.
   'claims_paid_on',
   'hide_name',
+  // What they say they actually transferred. Someone who pledged 100 may send
+  // 88 or 388, and this is where they get to say so.
+  //
+  // Must stay LAST: writeObjectRow_ writes by position, and ensureHeader_
+  // appends a missing column to the right of the existing sheet. Putting this
+  // anywhere else would silently write it into hide_name's column.
+  'claimed_amount_sgd',
 ];
 
 const PLEDGE_DASHBOARD_COLUMNS = [
@@ -76,13 +83,15 @@ const PLEDGE_DASHBOARD_COLUMNS = [
   'Pledged SGD',
   'Status',
   'Reference',
-  'Says Paid',
-  'Days Outstanding',
+  'Said Sent',
+  'Paid SGD',
+  'Quiet Days',
   'Received On',
   'Received SGD',
   'Thanked',
   'Message',
   'Pledged On',
+  'Thank on WhatsApp',
 ];
 
 const PLEDGE_STATUSES = ['Pledged', 'Received', 'Cancelled'];
@@ -103,6 +112,7 @@ const PLEDGE_CONFIG_DEFAULTS = [
   ['closed', 'FALSE', 'Set TRUE to stop accepting new pledges.'],
   ['closed_message', 'Pledges are closed now, thank you so much.', 'Shown when closed is TRUE.'],
   ['thank_you_message', '', 'Optional extra line added to thank-you emails.'],
+  ['whatsapp_number', '', 'Your number in full international form, e.g. 6591234567. Adds a "Message us" button for friends. Blank hides it. It is visible to anyone who has the page link.'],
 ];
 
 const PLEDGE_TOKEN_TTL_DAYS = 30;
@@ -158,7 +168,7 @@ function doPost(event) {
     if (action === 'me') return json_(getMyPledgeForClient(body.magic_token));
     if (action === 'cancel') return json_(cancelPledgeForClient(body.magic_token, body.pledge_id));
     if (action === 'amend') return json_(amendPledgeForClient(body.magic_token, body.pledge_id, body.amount_sgd));
-    if (action === 'sent') return json_(markPledgeSentForClient(body.magic_token, body.pledge_id));
+    if (action === 'sent') return json_(markPledgeSentForClient(body.magic_token, body.pledge_id, body.amount_sgd));
     if (action === 'unlock') return json_(unlockForClient(body.password));
 
     return json_({ ok: false, error: 'Unknown action.' });
@@ -218,9 +228,9 @@ function amendPledgeForClient(magicToken, pledgeId, amount) {
   }
 }
 
-function markPledgeSentForClient(magicToken, pledgeId) {
+function markPledgeSentForClient(magicToken, pledgeId, amount) {
   try {
-    return markPledgeSent_(magicToken, pledgeId);
+    return markPledgeSent_(magicToken, pledgeId, amount);
   } catch (error) {
     return { ok: false, error: publicError_(error) };
   }
@@ -405,6 +415,7 @@ function normalizePledge_(pledge) {
     source: cleanString_(pledge.source),
     notes: cleanString_(pledge.notes),
     claims_paid_on: pledge.claims_paid_on instanceof Date ? pledge.claims_paid_on.toISOString() : cleanString_(pledge.claims_paid_on),
+    claimed_amount_sgd: toNumberOrBlank_(pledge.claimed_amount_sgd),
     hide_name: parseBoolean_(pledge.hide_name) === true && cleanString_(pledge.hide_name) !== '',
   };
 }
@@ -415,12 +426,18 @@ function pledgeStatus_(value) {
   return match || 'Pledged';
 }
 
+/**
+ * Best available truth about a pledge, in order of authority: what the owner
+ * confirmed, then what the friend said they sent, then what they pledged.
+ */
 function countedAmount_(pledge) {
   if (pledge.status === 'Cancelled') return 0;
   if (pledge.status === 'Received') {
     const received = Number(pledge.received_amount_sgd);
-    return isFinite(received) && received > 0 ? received : pledge.amount_sgd;
+    if (isFinite(received) && received > 0) return received;
   }
+  const claimed = Number(pledge.claimed_amount_sgd);
+  if (isFinite(claimed) && claimed > 0) return claimed;
   return pledge.amount_sgd;
 }
 
@@ -482,6 +499,7 @@ function buildPublicRegistryPayload_() {
       paynow_number: config.paynow_number,
       paynow_name: config.paynow_name,
       paynow_qr_image_url: safePublicUrl_(config.paynow_qr_image_url),
+      whatsapp_url: whatsAppUrl_(config.whatsapp_number),
       closed: parseBoolean_(config.closed) === true && cleanString_(config.closed) !== '',
       closed_message: config.closed_message,
     },
@@ -538,6 +556,17 @@ function firstName_(value) {
   return cleanString_(value).split(/\s+/)[0] || '';
 }
 
+/**
+ * wa.me wants digits only — no +, spaces or dashes. Anything that does not
+ * look like a phone number returns blank, which hides the button rather than
+ * shipping a broken link.
+ */
+function whatsAppUrl_(value) {
+  const digits = cleanString_(value).replace(/[^0-9]/g, '');
+  if (digits.length < 8 || digits.length > 15) return '';
+  return 'https://wa.me/' + digits;
+}
+
 /* ---------- guest actions ---------- */
 
 function submitPledge_(body) {
@@ -588,6 +617,7 @@ function submitPledge_(body) {
       notes: '',
       claims_paid_on: '',
       hide_name: parseBoolean_(body.hide_name) === true && cleanString_(body.hide_name) !== '' ? 'TRUE' : '',
+      claimed_amount_sgd: '',
     };
 
     // Reuse one token per email so an older link keeps working for this guest.
@@ -736,6 +766,7 @@ function amendPledge_(magicToken, pledgeId, amount) {
     found.sheet.getRange(found.rowNumber, headers.amount_sgd + 1).setValue(Math.round(newAmount * 100) / 100);
     // Changing the amount invalidates any "I've sent it" claim against the old one.
     found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue('');
+    found.sheet.getRange(found.rowNumber, headers.claimed_amount_sgd + 1).setValue('');
     clearPublicPayloadCache_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
@@ -745,11 +776,14 @@ function amendPledge_(magicToken, pledgeId, amount) {
 }
 
 /**
- * A friend telling us they have transferred. This is a claim, not a
- * confirmation — it only nudges the owner to go and look at the bank. The
- * authoritative `status` column is never touched here.
+ * A friend telling us they have transferred, and how much.
+ *
+ * We take them at their word — this is a gift, not an invoice, and making
+ * someone wait on our bank reconciliation to feel finished is the wrong
+ * trade. The authoritative `status` column is still never touched here, so
+ * the owner keeps the option of checking without anything depending on it.
  */
-function markPledgeSent_(magicToken, pledgeId) {
+function markPledgeSent_(magicToken, pledgeId, amount) {
   setupPledgeSheets_();
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -757,8 +791,16 @@ function markPledgeSent_(magicToken, pledgeId) {
     const found = pledgeForToken_(magicToken, pledgeId);
     if (found.pledge.status === 'Cancelled') throw new Error('This pledge was cancelled.');
 
+    // Blank means "the amount I pledged", so the common case needs no typing.
+    const paid = amount === undefined || amount === null || cleanString_(amount) === ''
+      ? found.pledge.amount_sgd
+      : Number(amount);
+    if (!isFinite(paid) || paid <= 0) throw new Error('Please enter an amount greater than zero.');
+    if (paid > 100000) throw new Error('That amount looks like a typo. Please check it.');
+
     const headers = pledgeHeaderIndex_(found.sheet);
     found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue(new Date().toISOString());
+    found.sheet.getRange(found.rowNumber, headers.claimed_amount_sgd + 1).setValue(Math.round(paid * 100) / 100);
     clearPublicPayloadCache_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
@@ -776,6 +818,7 @@ function publicPledgeView_(pledge) {
     reference_code: cleanString_(pledge.reference_code),
     status: pledgeStatus_(pledge.status),
     claims_paid_on: cleanString_(pledge.claims_paid_on),
+    claimed_amount_sgd: toNumberOrBlank_(pledge.claimed_amount_sgd),
     pledged_on: pledge.timestamp instanceof Date ? pledge.timestamp.toISOString() : cleanString_(pledge.timestamp),
   };
 }
@@ -811,15 +854,15 @@ function refreshPledgeDashboard_() {
 
   sheet.clear();
 
-  // No goal column: there is no target any more, so there is nothing to be a
-  // percentage of.
+  // No goal column: there is no target any more. "Paid" is what friends told
+  // us they sent, and we take them at their word — see markPledgeSent_.
   sheet.getRange(1, 1, 1, 5).setValues([[
-    'Total pledged', 'Received', 'Outstanding', 'Pledges', 'Friends',
+    'Total pledged', 'Paid', 'Not sent yet', 'Pledges', 'Friends',
   ]]).setFontWeight('bold');
 
   sheet.getRange(2, 1, 1, 5).setFormulas([[
     '=ARRAYFORMULA(SUMPRODUCT(' + notCancelled + '*' + counted + '))',
-    '=ARRAYFORMULA(SUMPRODUCT((' + p + '!$H$2:$H="Received")*' + counted + '))',
+    '=ARRAYFORMULA(SUMPRODUCT(' + notCancelled + '*((' + p + '!$P$2:$P<>"")+(' + p + '!$H$2:$H="Received")>0)*' + counted + '))',
     '=A2-B2',
     '=COUNTIFS(' + p + '!$H$2:$H,"<>",' + p + '!$H$2:$H,"<>Cancelled")',
     '=IFERROR(COUNTA(UNIQUE(FILTER(' + p + '!$D$2:$D,' + p + '!$D$2:$D<>"",' + p + '!$H$2:$H<>"Cancelled"))),0)',
@@ -829,13 +872,15 @@ function refreshPledgeDashboard_() {
   // otherwise keep that currency and percent formatting.
   sheet.getRange(2, 4, 1, 2).setNumberFormat('0');
 
+  // Reads as people to thank, not rows to audit. Nothing here waits on the
+  // owner checking a bank statement.
   sheet.getRange(3, 1).setFormula(
     '=LET('
-    + 'saysPaid,COUNTIFS(' + p + '!$H$2:$H,"Pledged",' + p + '!$P$2:$P,"<>"),'
-    + 'unthanked,COUNTIFS(' + p + '!$H$2:$H,"Received",' + p + '!$K$2:$K,""),'
-    + 'msg,TRIM(IF(saysPaid>0,saysPaid&" say they have sent it - check your bank (blue rows).  ","")'
-    + '&IF(unthanked>0,unthanked&" received, not yet thanked.","")),'
-    + 'IF(COUNTA(' + p + '!$B$2:$B)=0,"No pledges yet.",IF(msg="","Nothing waiting on you.",msg)))');
+    + 'unthanked,COUNTIFS(' + p + '!$H$2:$H,"<>Cancelled",' + p + '!$P$2:$P,"<>",' + p + '!$K$2:$K,""),'
+    + 'quiet,COUNTIFS(' + p + '!$H$2:$H,"Pledged",' + p + '!$P$2:$P,"",' + p + '!$A$2:$A,"<"&(TODAY()-7)),'
+    + 'msg,TRIM(IF(unthanked>0,unthanked&" to thank (green rows).  ","")'
+    + '&IF(quiet>0,quiet&" pledged over a week ago and have not said they sent it - a friendly nudge, nothing more.","")),'
+    + 'IF(COUNTA(' + p + '!$B$2:$B)=0,"No pledges yet.",IF(msg="","All thanked. Nothing waiting on you.",msg)))');
 
   sheet.getRange(4, 1, 1, PLEDGE_DASHBOARD_COLUMNS.length)
     .setValues([PLEDGE_DASHBOARD_COLUMNS])
@@ -851,17 +896,30 @@ function refreshPledgeDashboard_() {
     + p + '!$H$2:$H,'
     + p + '!$G$2:$G,'
     + 'IF(' + p + '!$P$2:$P="","",LEFT(' + p + '!$P$2:$P,10)),'
-    + 'IF(' + p + '!$H$2:$H="Pledged",INT(TODAY())-INT(' + p + '!$A$2:$A),""),'
+    + p + '!$R$2:$R,'
+    // Only counts as quiet if they have not told us they sent it.
+    + 'IF((' + p + '!$H$2:$H="Pledged")*(' + p + '!$P$2:$P=""),INT(TODAY())-INT(' + p + '!$A$2:$A),""),'
     + 'IF(' + p + '!$I$2:$I="","",LEFT(' + p + '!$I$2:$I&"",10)),'
     + p + '!$J$2:$J,'
     + 'IF(' + p + '!$K$2:$K="","","Yes"),'
     + p + '!$F$2:$F,'
     + 'IF(' + p + '!$A$2:$A="","",TEXT(' + p + '!$A$2:$A,"yyyy-mm-dd"))'
-    + '},' + p + '!$B$2:$B<>""),12,FALSE),"")');
+    + '},' + p + '!$B$2:$B<>""),13,FALSE),"")');
 
   const tailRows = Math.max(sheet.getMaxRows() - 4, 1);
+
+  // One click opens WhatsApp with the thank-you already typed. No number in
+  // the link, so WhatsApp shows its contact picker and we never have to
+  // collect or store anyone's phone number.
+  sheet.getRange(5, 14).setFormula(
+    '=ARRAYFORMULA(IF($A$5:$A="","",HYPERLINK('
+    + '"https://wa.me/?text="&ENCODEURL("Hi "&$A$5:$A&", thank you so much for chipping in toward the new place'
+    + ' - it means a lot to us. "),'
+    + '"Thank on WhatsApp")))');
+
   sheet.getRange(5, 3, tailRows, 1).setNumberFormat('$#,##0.00');
-  sheet.getRange(5, 9, tailRows, 1).setNumberFormat('$#,##0.00');
+  sheet.getRange(5, 7, tailRows, 1).setNumberFormat('$#,##0.00');
+  sheet.getRange(5, 10, tailRows, 1).setNumberFormat('$#,##0.00');
 
   sheet.setFrozenRows(4);
   applyPledgeDashboardFormatting_(sheet, tailRows);
@@ -874,20 +932,17 @@ function applyPledgeDashboardFormatting_(sheet, rowCount) {
   if (!rowCount) return;
 
   const range = sheet.getRange(5, 1, rowCount, PLEDGE_DASHBOARD_COLUMNS.length);
+  // Green = done. Either they told us they sent it, or you confirmed it.
+  // Both are settled; the friend is waiting on nothing.
   const received = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=$D5="Received"')
+    .whenFormulaSatisfied('=AND($D5<>"Cancelled",OR($D5="Received",$F5<>""))')
     .setBackground('#e6f4ea')
     .setRanges([range])
     .build();
-  // Blue = they say they have sent it, you have not confirmed it in the bank.
-  // Deliberately a different colour from Received so the two never blur.
-  const claimsPaid = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=AND($D5="Pledged",$F5<>"")')
-    .setBackground('#e3f0fb')
-    .setRanges([range])
-    .build();
+  // Amber is only for someone who pledged and then went quiet. It is a
+  // prompt to send a friendly message, not a debt.
   const chasing = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=AND($D5="Pledged",$F5="",$G5>7)')
+    .whenFormulaSatisfied('=AND($D5="Pledged",$F5="",$H5>7)')
     .setBackground('#fef7e0')
     .setRanges([range])
     .build();
@@ -897,7 +952,7 @@ function applyPledgeDashboardFormatting_(sheet, rowCount) {
     .setRanges([range])
     .build();
 
-  sheet.setConditionalFormatRules([received, claimsPaid, chasing, cancelled]);
+  sheet.setConditionalFormatRules([received, chasing, cancelled]);
 }
 
 /* ---------- owner emails ---------- */
@@ -923,8 +978,13 @@ function sendThankYouEmails_() {
   const rowsById = pledgeRowNumbersById_();
   const pending = [];
 
+  // Anyone who has told us they sent it counts, not just rows the owner has
+  // ticked off against the bank. Under the trust model that set is usually
+  // empty, and thanking people should not wait on bookkeeping.
   pledges.forEach((pledge) => {
-    if (pledge.status !== 'Received' || pledge.thanked_on || !pledge.guest_email) return;
+    const gave = pledge.status === 'Received'
+      || (pledge.status !== 'Cancelled' && pledge.claims_paid_on);
+    if (!gave || pledge.thanked_on || !pledge.guest_email) return;
     const rowNumber = rowsById[pledge.pledge_id];
     if (rowNumber) pending.push({ pledge, rowNumber });
   });
