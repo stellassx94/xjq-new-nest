@@ -9,6 +9,15 @@ Two pieces:
 
 The page calls the script as a JSON API. The older item-claiming build is untouched in `apps-script/` (git-ignored, local only) — keep it until this one works, then it can go.
 
+## Accounts
+
+Everything here — the spreadsheet, the Apps Script project, the Gmail that sends
+the confirmations — belongs to **simsxs@gmail.com**. Any tool or API call must
+authenticate as that account. `jiaqisuen11@gmail.com` is a different account and
+will fail with what looks like an expired-token error but is not one.
+
+GitHub Pages is served from the `stellassx94` account.
+
 ## Source of truth
 
 Spreadsheet: `Bishan Renovation`
