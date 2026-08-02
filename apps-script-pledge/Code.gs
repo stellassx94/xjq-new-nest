@@ -269,7 +269,7 @@ function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('New Nest Pledges')
-      .addItem('Refresh pledge dashboard', 'refreshPledgeDashboard_')
+      .addItem('Reinstall dashboard formulas', 'refreshPledgeDashboard_')
       .addItem('Send thank-you emails', 'sendThankYouEmailsFromMenu_')
       .addItem('Resend confirmation for selected row', 'resendConfirmationForSelectedRow_')
       .addSeparator()
@@ -825,6 +825,9 @@ function refreshPledgeDashboard_() {
     '=IFERROR(COUNTA(UNIQUE(FILTER(' + p + '!$D$2:$D,' + p + '!$D$2:$D<>"",' + p + '!$H$2:$H<>"Cancelled"))),0)',
   ]]);
   sheet.getRange(2, 1, 1, 3).setNumberFormat('$#,##0.00');
+  // Explicit, because these two cells used to hold Goal / % of goal and would
+  // otherwise keep that currency and percent formatting.
+  sheet.getRange(2, 4, 1, 2).setNumberFormat('0');
 
   sheet.getRange(3, 1).setFormula(
     '=LET('

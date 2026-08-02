@@ -13,8 +13,11 @@ The page calls the script as a JSON API. The older item-claiming build is untouc
 
 Spreadsheet: `Bishan Renovation`
 
+It has 30+ tabs from the whole renovation. Only these have anything to do with the pledge page — the **`New Nest — Start Here`** tab (first in the row) links to each of them and shows a live preview of what friends are seeing.
+
 | Tab | What it is | Do you touch it? |
 |---|---|---|
+| `New Nest — Start Here` | Navigation, plus a live preview of the item list | Read only |
 | `Pledges` | Append-only log — one row per pledge. **This is the source of truth.** | Only the `status`, `received_on`, `received_amount_sgd`, `notes` columns |
 | `claims_paid_on` (in `Pledges`) | A friend saying "I've sent it". A claim, never a confirmation — it never sets `status` | Read only |
 | `Pledge Dashboard` | **Formulas.** Totals at the top, one row per pledge below, all live | Read only — but safe to add your own columns to the right |
@@ -61,7 +64,7 @@ Prices are stored but deliberately **not shown** on the page — for the same re
 
 ## What a friend sees
 
-1. Progress bar, your headline, and the browse-only item grid.
+1. How much has been pledged so far, your headline, and the browse-only item grid. **No target and no progress bar** — this is a gift, not a fundraiser, and a bar implies a share each friend owes.
 2. They enter name, email and any amount, plus an optional note.
 3. They get a **reference code** (`NEST-4KQ2`) with the PayNow QR on screen, and the same in an email.
 4. They transfer whenever they like, putting the reference code in the PayNow reference field.
@@ -83,13 +86,12 @@ The page never shows who gave how much — only first names and a count.
 
 Already done: script pushed and deployed, web app created, `Pledges` / `Pledge Config` / `Pledge Dashboard` tabs created, config filled in, QR hosted, site wired to the backend.
 
-**What is left — two things only you can do.**
+The script is authorized and running. **What is left — things only you can do.**
 
-1. **Authorize the script.** Open the [script editor](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit), pick `setupPledgeSheets_` from the function dropdown, hit **Run**, and click through the consent screen. It asks for this spreadsheet and to **send email as you** — that is the confirmation and thank-you mail. Google cannot grant a script its own permissions over an API; it needs your click.
-
-   Until this is done the site shows "Could not load the page" and the `/exec` URL returns *Access denied*.
-
-2. **Fill in two blanks** in `Pledge Config`: `paynow_number` and `paynow_name`. The QR alone works, but showing the number reassures people they are paying the right person.
+1. **Fill in two blanks** in `Pledge Config`: `paynow_number` and `paynow_name`. The QR alone works, but showing the number reassures people they are paying the right person.
+2. **Rewrite `why_cash` in your own voice.** The current text is a placeholder written by me. It is the warmest thing on the page and it should sound like you.
+3. **Clear the test rows** in `Pledges` — set the "test" and "test22" rows to `Cancelled`.
+4. **Hide two dead tabs**: right-click `Registry Responses` and `Registry Summary` → Hide sheet. They are leftovers from the old claim-based registry. (No API can hide a tab, so this one is manual.)
 
 Then open https://stellassx94.github.io/xjq-new-nest/, make one test pledge to yourself, check the email arrives, and set that row's `status` to `Cancelled`.
 
@@ -133,4 +135,4 @@ Item scraping still belongs to the **older** registry script bound to the same s
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbymXJtIBFhLRBfiLC6eM-hJlnKU-muSIxBfzHIfbBlo5TP_qFJrdKdZeT8HDj-5Ghpl/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbzI0kK9xmKP_4rTyjQL38R2hzmxxmkxsC0ZI6GAsIFghNzmNip-lvOvHRYHgGdufHnS/exec` |
