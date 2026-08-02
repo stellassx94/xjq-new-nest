@@ -88,7 +88,6 @@ const PLEDGE_DASHBOARD_COLUMNS = [
 const PLEDGE_STATUSES = ['Pledged', 'Received', 'Cancelled'];
 
 const PLEDGE_CONFIG_DEFAULTS = [
-  ['goal_sgd', '5000', 'Total we are saving toward. Drives the progress bar.'],
   ['paynow_number', '', 'Your PayNow mobile number or UEN, shown next to the QR.'],
   ['paynow_name', '', 'Name that shows up in their banking app, so they know the transfer is right.'],
   ['paynow_qr_image_url', '', 'Public https:// link to your PayNow QR image. Leave blank to hide the QR.'],
@@ -479,7 +478,6 @@ function buildPublicRegistryPayload_() {
       why_cash: config.why_cash,
       headline: config.page_headline,
       subtext: config.page_subtext,
-      goal_sgd: Number(numericAmount_(config.goal_sgd)) || 0,
       suggested_amounts: suggestedAmounts_(config.suggested_amounts),
       paynow_number: config.paynow_number,
       paynow_name: config.paynow_name,
@@ -813,21 +811,20 @@ function refreshPledgeDashboard_() {
 
   sheet.clear();
 
-  sheet.getRange(1, 1, 1, 7).setValues([[
-    'Total pledged', 'Received', 'Outstanding', 'Goal', '% of goal', 'Pledges', 'Friends',
+  // No goal column: there is no target any more, so there is nothing to be a
+  // percentage of.
+  sheet.getRange(1, 1, 1, 5).setValues([[
+    'Total pledged', 'Received', 'Outstanding', 'Pledges', 'Friends',
   ]]).setFontWeight('bold');
 
-  sheet.getRange(2, 1, 1, 7).setFormulas([[
+  sheet.getRange(2, 1, 1, 5).setFormulas([[
     '=ARRAYFORMULA(SUMPRODUCT(' + notCancelled + '*' + counted + '))',
     '=ARRAYFORMULA(SUMPRODUCT((' + p + '!$H$2:$H="Received")*' + counted + '))',
     '=A2-B2',
-    '=IFERROR(VALUE(VLOOKUP("goal_sgd",\'' + REGISTRY_CONFIG.pledgeConfigSheet + '\'!$A:$B,2,FALSE)),0)',
-    '=IF(D2=0,"",B2/D2)',
     '=COUNTIFS(' + p + '!$H$2:$H,"<>",' + p + '!$H$2:$H,"<>Cancelled")',
     '=IFERROR(COUNTA(UNIQUE(FILTER(' + p + '!$D$2:$D,' + p + '!$D$2:$D<>"",' + p + '!$H$2:$H<>"Cancelled"))),0)',
   ]]);
-  sheet.getRange(2, 1, 1, 4).setNumberFormat('$#,##0.00');
-  sheet.getRange(2, 5).setNumberFormat('0%');
+  sheet.getRange(2, 1, 1, 3).setNumberFormat('$#,##0.00');
 
   sheet.getRange(3, 1).setFormula(
     '=LET('

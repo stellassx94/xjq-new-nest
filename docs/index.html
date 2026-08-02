@@ -187,25 +187,10 @@
       font-size: 0.9rem;
     }
 
-    .bar {
-      height: 10px;
-      margin: 16px 0 10px;
-      border-radius: 999px;
-      background: var(--soft);
-      overflow: hidden;
-    }
-
-    .bar span {
-      display: block;
-      height: 100%;
-      width: 0;
-      border-radius: 999px;
-      background: var(--green);
-      transition: width 0.6s ease;
-    }
-
-    .progress-meta { color: var(--muted); font-size: 0.86rem; }
-
+    /*
+      No progress bar and no target. This is a gift, not a fundraiser — a bar
+      implies a finish line and a share that each friend owes.
+    */
     .friends {
       margin-top: 12px;
       padding-top: 12px;
@@ -393,40 +378,50 @@
 
     .item-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-      gap: 4px 28px;
-      border-top: 1px solid var(--line);
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 22px;
     }
 
     .item {
       display: flex;
-      gap: 14px;
-      align-items: center;
-      padding: 14px 2px;
-      border-bottom: 1px solid var(--line);
+      flex-direction: column;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Only linked cards get an affordance; the rest must not look clickable. */
+    a.item {
+      border-radius: 10px;
+      transition: transform 0.18s ease;
+    }
+    a.item:hover { transform: translateY(-3px); }
+    a.item:hover .item-name { color: var(--clay); }
+    a.item:focus-visible {
+      outline: 2px solid var(--clay);
+      outline-offset: 4px;
     }
 
     /*
-      Product shots come from a dozen shops at a dozen sizes and aspect
-      ratios. A fixed box that clips, with the image sized by max-width /
+      Product shots come from a dozen shops at a dozen sizes and aspect ratios.
+      A fixed pixel height that clips, with the image sized by max-width /
       max-height rather than width:100%/height:100%, is the only way one of
-      them cannot break the row. Items with no photo get no box at all.
+      them cannot break the grid. This is what the old `aspect-ratio` +
+      `place-items: center` panel got wrong: no definite height to resolve
+      against, so tall images escaped the box.
     */
-    .item-thumb {
-      flex: 0 0 62px;
-      width: 62px;
-      height: 62px;
+    .item-art {
+      height: 168px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 6px;
+      padding: 14px;
       overflow: hidden;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 10px;
       background: #f6f2ea;
     }
 
-    .item-thumb img {
+    .item-art img {
       max-width: 100%;
       max-height: 100%;
       width: auto;
@@ -434,12 +429,21 @@
       object-fit: contain;
     }
 
-    .item-text { min-width: 0; }
-    .item-text h3 { font-size: 0.98rem; font-weight: 700; }
+    /* No photo yet: the room name set as type, so the panel reads deliberate. */
+    .item-art-empty {
+      color: var(--clay);
+      font-family: var(--serif);
+      font-size: 1.15rem;
+      opacity: 0.55;
+      text-align: center;
+    }
+
+    .item-text { min-width: 0; padding-top: 12px; }
+    .item-name { font-size: 1rem; font-weight: 700; }
     .item-text p {
-      margin-top: 3px;
+      margin-top: 4px;
       color: var(--muted);
-      font-size: 0.83rem;
+      font-size: 0.84rem;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -447,6 +451,7 @@
       -webkit-box-orient: vertical;
     }
     .item-room {
+      margin-bottom: 4px;
       color: var(--clay);
       font-size: 0.66rem;
       font-weight: 850;
@@ -549,13 +554,10 @@
         <div class="progress-card">
           <div id="progressLoading">
             <div class="skeleton sk-amount"></div>
-            <div class="skeleton sk-line"></div>
             <div class="skeleton sk-line short"></div>
           </div>
           <div id="progressReady" class="hidden">
-            <p class="progress-amount" id="progressAmount">—<small id="progressGoal"></small></p>
-            <div class="bar"><span id="barReceived"></span></div>
-            <p class="progress-meta" id="progressMeta"></p>
+            <p class="progress-amount" id="progressAmount">—</p>
             <p class="friends" id="friends"></p>
           </div>
         </div>
@@ -664,8 +666,9 @@
           <p>Just so you can picture it. Nothing here needs claiming — these are the things on our list.</p>
         </div>
         <div class="item-list" id="itemList">
-          <div class="item"><div class="item-thumb skeleton"></div><div class="item-text" style="flex:1;"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
-          <div class="item"><div class="item-thumb skeleton"></div><div class="item-text" style="flex:1;"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
+          <div class="item"><div class="item-art skeleton"></div><div class="item-text"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
+          <div class="item"><div class="item-art skeleton"></div><div class="item-text"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
+          <div class="item"><div class="item-art skeleton"></div><div class="item-text"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
         </div>
       </section>
     </main>
@@ -797,22 +800,15 @@
 
     function renderProgress() {
       var totals = state.totals || {};
-      var goal = Number(state.settings.goal_sgd) || 0;
       var pledged = Number(totals.pledged_sgd) || 0;
 
       $("progressLoading").classList.add("hidden");
       $("progressReady").classList.remove("hidden");
 
+      // No target, and deliberately no received-vs-outstanding split. Who has
+      // actually transferred is reconciliation state and belongs to the owner.
       $("progressAmount").innerHTML = escapeHtml(money(pledged))
-        + "<small>" + (goal ? "of " + escapeHtml(money(goal)) + " we are saving toward" : "pledged so far") + "</small>";
-
-      $("barReceived").style.width = (goal ? Math.min(100, (pledged / goal) * 100) : (pledged > 0 ? 100 : 0)) + "%";
-
-      // Deliberately no received-vs-outstanding split here. Who has actually
-      // transferred is reconciliation state and belongs to the owner only.
-      $("progressMeta").textContent = goal && pledged < goal
-        ? money(goal - pledged) + " to go"
-        : "";
+        + "<small>pledged so far</small>";
 
       var names = totals.names || [];
       var count = Number(totals.pledge_count) || 0;
@@ -834,17 +830,23 @@
 
       $("itemsSection").classList.remove("hidden");
       $("itemList").innerHTML = state.items.map(function (item) {
-        // No photo means no thumbnail box at all, rather than an empty panel.
-        var thumb = item.image
-          ? '<div class="item-thumb"><img src="' + escapeHtml(item.image) + '" alt="" loading="lazy" decoding="async"></div>'
-          : "";
+        // No photo yet: the room name set as type, rather than an empty box.
+        var art = item.image
+          ? '<img src="' + escapeHtml(item.image) + '" alt="" loading="lazy" decoding="async">'
+          : '<span class="item-art-empty">' + escapeHtml(item.room || item.name) + "</span>";
+
         var detail = item.description || item.reference_title || "";
-        return '<div class="item">' + thumb
+        var body = '<div class="item-art">' + art + "</div>"
           + '<div class="item-text">'
           + (item.room ? '<p class="item-room">' + escapeHtml(item.room) + "</p>" : "")
-          + "<h3>" + escapeHtml(item.name) + "</h3>"
+          + '<h3 class="item-name">' + escapeHtml(item.name) + "</h3>"
           + (detail ? "<p>" + escapeHtml(detail) + "</p>" : "")
-          + "</div></div>";
+          + "</div>";
+
+        // Links are already restricted to http(s) server-side by safePublicUrl_.
+        return item.link
+          ? '<a class="item" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">' + body + "</a>"
+          : '<div class="item">' + body + "</div>";
       }).join("");
     }
 

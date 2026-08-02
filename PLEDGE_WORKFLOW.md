@@ -19,7 +19,7 @@ Spreadsheet: `Bishan Renovation`
 | `claims_paid_on` (in `Pledges`) | A friend saying "I've sent it". A claim, never a confirmation — it never sets `status` | Read only |
 | `Pledge Dashboard` | **Formulas.** Totals at the top, one row per pledge below, all live | Read only — but safe to add your own columns to the right |
 | `Pledge Config` | Key/value settings for the public page | Yes, this is your control panel |
-| `Registry Items` | Feeds the browse-only inspiration grid | Via `Paste Links Here` as before |
+| `Registry Items` | **Controls the "What it goes toward" section.** Nothing else feeds it | Yes — see the column table below |
 | `Paste Links Here` | Paste product URLs, the script scrapes them | Yes |
 | `Housewarming/Later Appliances` | Your working item list | Yes |
 | `Registry Responses` / `Registry Summary` | Historical, from the old claim-based registry | Ignore |
@@ -28,7 +28,6 @@ Spreadsheet: `Bishan Renovation`
 
 | Key | Notes |
 |---|---|
-| `goal_sgd` | Drives the progress bar. Set something honest and reachable |
 | `paynow_number` | Your PayNow mobile or UEN |
 | `paynow_name` | The name that shows in their banking app, so they know the transfer is right |
 | `paynow_qr_image_url` | Public `https://` link to your QR image. Blank hides the QR |
@@ -42,6 +41,24 @@ Spreadsheet: `Bishan Renovation`
 | `closed` | `TRUE` stops new pledges and shows `closed_message` |
 | `thank_you_message` | Optional extra line in thank-you emails |
 
+## Controlling the item section
+
+Every item on the page is one row in `Registry Items`. These are the only columns that change what friends see:
+
+| You want to | Edit |
+|---|---|
+| Change the title shown | `display_name` (falls back to `scraped_title`) |
+| Change the blurb under it | `description` (falls back to `remarks`) |
+| Change the room label | `category` |
+| Use a better photo | `display_image` — overrides the scraped one |
+| Change where the card links to | `source_link`. Blank means the card is not clickable |
+| Reorder the page | `sort_order`, ascending |
+| Hide an item | `status` = `hidden` / `archived` / `draft`, or `active` = `FALSE` |
+
+**It syncs, with about a minute of lag.** The script caches the public data for 60 seconds and the browser shows its last copy first. Edit a cell, wait a minute, hard-refresh.
+
+Prices are stored but deliberately **not shown** on the page — for the same reason there is no target.
+
 ## What a friend sees
 
 1. Progress bar, your headline, and the browse-only item grid.
@@ -54,7 +71,7 @@ The page never shows who gave how much — only first names and a count.
 
 ## Your routine
 
-**Reconciling (the only recurring chore).** Open your bank transaction list, match the reference code in each transfer to the row in `Pledges`, and set `status` to `Received`. Fill `received_amount_sgd` only if they sent a different amount from what they pledged. The dashboard and public progress bar follow automatically.
+**Reconciling (the only recurring chore).** Open your bank transaction list, match the reference code in each transfer to the row in `Pledges`, and set `status` to `Received`. Fill `received_amount_sgd` only if they sent a different amount from what they pledged. The dashboard follows automatically.
 
 **Thanking.** `New Nest Pledges` → `Send thank-you emails`. It emails everyone marked `Received` who hasn't been thanked yet, then stamps `thanked_on` so nobody gets thanked twice. Gmail caps at ~100 emails/day; it sends 40 per run and tells you how many are left.
 
