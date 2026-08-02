@@ -4,9 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Things for the New Nest</title>
-  <style>
-    @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;650;750;850&display=swap");
 
+  <!--
+    Warm up the two hosts we are about to hit. The API is a cold-starting
+    Apps Script, so the connection cost is worth paying before the fetch.
+  -->
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Loaded async so a slow font server can never hold up first paint. -->
+  <link rel="stylesheet" media="print" onload="this.media='all'"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;650;750;850&display=swap">
+  <noscript>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;650;750;850&display=swap">
+  </noscript>
+
+  <style>
     :root {
       --paper: #fbf8f2;
       --surface: #fffdf8;
@@ -374,56 +389,92 @@
     .tag-sent { background: #dce9f3; color: var(--blue); }
     .tag-cancelled { background: #ece7e2; color: var(--muted); }
 
-    /* ---------- inspiration grid ---------- */
+    /* ---------- what it goes toward ---------- */
 
-    .grid {
+    .item-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 4px 28px;
+      border-top: 1px solid var(--line);
     }
 
-    .card {
+    .item {
       display: flex;
-      flex-direction: column;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--surface);
-      overflow: hidden;
-    }
-
-    /*
-      Product shots come from a dozen different shops at a dozen different
-      sizes. `contain` on a neutral pad shows each one whole instead of
-      cropping into it, which is what made the grid look broken.
-    */
-    .card-art {
-      aspect-ratio: 4 / 3;
-      display: grid;
-      place-items: center;
-      padding: 12px;
-      background: #f6f2ea;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 2px;
       border-bottom: 1px solid var(--line);
     }
 
-    .card-art img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      object-position: center;
+    /*
+      Product shots come from a dozen shops at a dozen sizes and aspect
+      ratios. A fixed box that clips, with the image sized by max-width /
+      max-height rather than width:100%/height:100%, is the only way one of
+      them cannot break the row. Items with no photo get no box at all.
+    */
+    .item-thumb {
+      flex: 0 0 62px;
+      width: 62px;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f6f2ea;
     }
 
-    .card-art .glyph { color: var(--line); font-family: var(--serif); font-size: 2.4rem; }
+    .item-thumb img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
 
-    .card-body { padding: 14px 16px 18px; }
-    .card-body h3 { font-size: 0.98rem; font-weight: 700; }
-    .card-body p { margin-top: 6px; color: var(--muted); font-size: 0.83rem; }
-    .card-room {
+    .item-text { min-width: 0; }
+    .item-text h3 { font-size: 0.98rem; font-weight: 700; }
+    .item-text p {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.83rem;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .item-room {
       color: var(--clay);
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       font-weight: 850;
       letter-spacing: 0.12em;
       text-transform: uppercase;
     }
+
+    /* ---------- loading ---------- */
+
+    .skeleton {
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--soft) 25%, #f6f2ea 37%, var(--soft) 63%);
+      background-size: 400% 100%;
+      animation: shimmer 1.4s ease infinite;
+    }
+
+    @keyframes shimmer {
+      from { background-position: 100% 50%; }
+      to { background-position: 0 50%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton { animation: none; }
+    }
+
+    .sk-amount { height: 2.6rem; width: 60%; }
+    .sk-line { height: 0.8rem; margin-top: 10px; }
+    .sk-line.short { width: 45%; }
 
     footer {
       padding: 32px 0 52px;
@@ -473,7 +524,12 @@
     </div>
   </div>
 
-  <div id="page" class="hidden">
+  <!--
+    Visible from the first paint. The static copy below is a faithful default,
+    so a guest reads something warm while the API is still cold-starting; live
+    values replace it in place when they arrive.
+  -->
+  <div id="page">
     <header class="hero">
       <div class="shell hero-grid">
         <div>
@@ -486,15 +542,22 @@
           </div>
 
           <h1 id="headline">Things for the New Nest</h1>
-          <p class="hero-copy" id="subtext"></p>
+          <p class="hero-copy" id="subtext">Your company is the real gift. But if you would like to chip in toward the new place, here is the easiest way.</p>
           <p class="why" id="whyCash"></p>
         </div>
 
         <div class="progress-card">
-          <p class="progress-amount" id="progressAmount">—<small id="progressGoal"></small></p>
-          <div class="bar"><span id="barReceived"></span></div>
-          <p class="progress-meta" id="progressMeta"></p>
-          <p class="friends" id="friends"></p>
+          <div id="progressLoading">
+            <div class="skeleton sk-amount"></div>
+            <div class="skeleton sk-line"></div>
+            <div class="skeleton sk-line short"></div>
+          </div>
+          <div id="progressReady" class="hidden">
+            <p class="progress-amount" id="progressAmount">—<small id="progressGoal"></small></p>
+            <div class="bar"><span id="barReceived"></span></div>
+            <p class="progress-meta" id="progressMeta"></p>
+            <p class="friends" id="friends"></p>
+          </div>
         </div>
       </div>
     </header>
@@ -591,7 +654,10 @@
           <h2>What it goes toward</h2>
           <p>Just so you can picture it. Nothing here needs claiming — these are the things on our list.</p>
         </div>
-        <div class="grid" id="itemGrid"></div>
+        <div class="item-list" id="itemList">
+          <div class="item"><div class="item-thumb skeleton"></div><div class="item-text" style="flex:1;"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
+          <div class="item"><div class="item-thumb skeleton"></div><div class="item-text" style="flex:1;"><div class="skeleton sk-line short"></div><div class="skeleton sk-line"></div></div></div>
+        </div>
       </section>
     </main>
 
@@ -607,10 +673,11 @@
      * Backend — Apps Script web app bound to the "Bishan Renovation" sheet.
      * Redeploying a new version keeps this URL, so it rarely changes.
      * ------------------------------------------------------------------ */
-    var API_URL = "https://script.google.com/macros/s/AKfycbzATtggeQmfYTs-Hv49zbTka86GgdSRSIoCkWb1CEJ3LawTzVG6EgWrCKlxDz0MUoQW/exec";
+    var API_URL = "https://script.google.com/macros/s/AKfycbwH0A7K05xYroWBBgFMXTqrh4BQx5BA5Pb3BftcxlpEWvxdbQOamYTwVMSxtaaB-bSU/exec";
 
     var STORE_KEY = "nest-key";
     var STORE_TOKEN = "nest-token";
+    var STORE_PAYLOAD = "nest-payload";
 
     var params = new URLSearchParams(window.location.search);
 
@@ -721,18 +788,21 @@
     function renderProgress() {
       var totals = state.totals || {};
       var goal = Number(state.settings.goal_sgd) || 0;
-      var received = Number(totals.received_sgd) || 0;
       var pledged = Number(totals.pledged_sgd) || 0;
+
+      $("progressLoading").classList.add("hidden");
+      $("progressReady").classList.remove("hidden");
 
       $("progressAmount").innerHTML = escapeHtml(money(pledged))
         + "<small>" + (goal ? "of " + escapeHtml(money(goal)) + " we are saving toward" : "pledged so far") + "</small>";
 
       $("barReceived").style.width = (goal ? Math.min(100, (pledged / goal) * 100) : (pledged > 0 ? 100 : 0)) + "%";
 
-      var onTheWay = Math.max(pledged - received, 0);
-      $("progressMeta").textContent = onTheWay > 0
-        ? money(received) + " received · " + money(onTheWay) + " on the way"
-        : money(received) + " received";
+      // Deliberately no received-vs-outstanding split here. Who has actually
+      // transferred is reconciliation state and belongs to the owner only.
+      $("progressMeta").textContent = goal && pledged < goal
+        ? money(goal - pledged) + " to go"
+        : "";
 
       var names = totals.names || [];
       var count = Number(totals.pledge_count) || 0;
@@ -752,18 +822,19 @@
         return;
       }
 
-      $("itemGrid").innerHTML = state.items.map(function (item) {
-        var art = item.image
-          ? '<img src="' + escapeHtml(item.image) + '" alt="" loading="lazy">'
-          : '<span class="glyph">&#10047;</span>';
+      $("itemsSection").classList.remove("hidden");
+      $("itemList").innerHTML = state.items.map(function (item) {
+        // No photo means no thumbnail box at all, rather than an empty panel.
+        var thumb = item.image
+          ? '<div class="item-thumb"><img src="' + escapeHtml(item.image) + '" alt="" loading="lazy" decoding="async"></div>'
+          : "";
         var detail = item.description || item.reference_title || "";
-        return '<article class="card">'
-          + '<div class="card-art">' + art + "</div>"
-          + '<div class="card-body">'
-          + (item.room ? '<p class="card-room">' + escapeHtml(item.room) + "</p>" : "")
+        return '<div class="item">' + thumb
+          + '<div class="item-text">'
+          + (item.room ? '<p class="item-room">' + escapeHtml(item.room) + "</p>" : "")
           + "<h3>" + escapeHtml(item.name) + "</h3>"
           + (detail ? "<p>" + escapeHtml(detail) + "</p>" : "")
-          + "</div></article>";
+          + "</div></div>";
       }).join("");
     }
 
@@ -807,7 +878,20 @@
 
       section.classList.remove("hidden");
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
-      $("mineSubtitle").textContent = "Only you can see this.";
+
+      var open = mine.pledges.filter(function (pledge) { return pledge.status === "Pledged"; });
+      var confirmed = mine.pledges.filter(function (pledge) { return pledge.status === "Received"; });
+      var confirmedTotal = confirmed.reduce(function (sum, pledge) { return sum + Number(pledge.amount_sgd || 0); }, 0);
+      var openTotal = open.reduce(function (sum, pledge) { return sum + Number(pledge.amount_sgd || 0); }, 0);
+
+      var summary = [];
+      if (confirmedTotal) summary.push(money(confirmedTotal) + " received — thank you");
+      if (openTotal) {
+        summary.push(open.some(function (pledge) { return pledge.claims_paid_on; })
+          ? money(openTotal) + " sent, we are still checking our bank"
+          : money(openTotal) + " still to transfer");
+      }
+      $("mineSubtitle").textContent = summary.join(" · ") || "Only you can see this.";
 
       $("mineRows").innerHTML = mine.pledges.map(function (pledge) {
         var open = pledge.status === "Pledged";
@@ -834,13 +918,18 @@
     }
 
     function renderConfirmation(pledge, paynow) {
+      // The button lives right here, where they land when they come back from
+      // their banking app — not somewhere further up the page to go hunting for.
       $("pledgeSection").innerHTML = '<div class="section-head">'
         + "<h2>Thank you, " + escapeHtml((pledge.guest_name || "").split(" ")[0]) + "</h2>"
         + "<p>Your pledge of <strong>" + escapeHtml(money(pledge.amount_sgd))
         + "</strong> is noted, and we have emailed you these details too.</p></div>"
         + '<div class="panel"><div class="paynow">' + payNowHtml(pledge, paynow) + "</div>"
-        + '<p class="hint">Once you have transferred, scroll up and tap <strong>I\'ve sent it</strong> '
-        + "so we know to look out for it.</p></div>";
+        + '<div style="margin-top:18px;">'
+        + '<button class="btn" type="button" data-sent="' + escapeHtml(pledge.pledge_id) + '">'
+        + "I&rsquo;ve sent it</button>"
+        + '<p class="hint">Tap this once you have transferred, so we know to look out for it. '
+        + "You can always come back to this page to check.</p></div></div>";
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -852,6 +941,35 @@
       if (message) {
         $("gateError").textContent = message;
         $("gateError").classList.remove("hidden");
+      }
+    }
+
+    function applyRegistry(registry) {
+      state.settings = registry.settings || {};
+      state.totals = registry.totals || {};
+      state.items = registry.items || [];
+      state.paynow = {
+        number: state.settings.paynow_number,
+        name: state.settings.paynow_name,
+        qr_image_url: state.settings.paynow_qr_image_url,
+      };
+      renderSettings();
+      renderProgress();
+      renderItems();
+    }
+
+    /**
+     * Paint whatever we saw last time straight away, so a returning guest gets
+     * a complete page immediately instead of watching the Apps Script cold
+     * start. The live fetch then overwrites it.
+     */
+    function renderCachedRegistry() {
+      var raw = recall(STORE_PAYLOAD);
+      if (!raw) return;
+      try {
+        applyRegistry(JSON.parse(raw));
+      } catch (error) {
+        forget(STORE_PAYLOAD);
       }
     }
 
@@ -871,22 +989,12 @@
           $("page").classList.remove("hidden");
           if (KEY) remember(STORE_KEY, KEY);
 
-          state.settings = response.registry.settings || {};
-          state.totals = response.registry.totals || {};
-          state.items = response.registry.items || [];
-          state.paynow = {
-            number: state.settings.paynow_number,
-            name: state.settings.paynow_name,
-            qr_image_url: state.settings.paynow_qr_image_url,
-          };
-          state.mine = response.my_pledge || null;
+          applyRegistry(response.registry);
+          remember(STORE_PAYLOAD, JSON.stringify(response.registry));
 
+          state.mine = response.my_pledge || null;
           // A token that no longer resolves is a dead bookmark; drop it.
           if (!state.mine && MAGIC_TOKEN) forget(STORE_TOKEN);
-
-          renderSettings();
-          renderProgress();
-          renderItems();
           renderMine();
         })
         .catch(function (error) {
@@ -946,7 +1054,13 @@
       apiPost(payload)
         .then(function (response) {
           if (!response || !response.ok) return fail((response && response.error) || "Something went wrong.");
-          if (response.magic_token) remember(STORE_TOKEN, response.magic_token);
+          if (response.magic_token) {
+            // Both matter: storage is for the next visit, the variable is for
+            // the reload happening right now. Forgetting the second one is why
+            // the "I've sent it" panel used to never appear after pledging.
+            remember(STORE_TOKEN, response.magic_token);
+            MAGIC_TOKEN = response.magic_token;
+          }
           renderConfirmation(response.pledge, response.paynow);
           loadRegistry();
         })
@@ -1088,6 +1202,7 @@
       }
     }
 
+    renderCachedRegistry();
     loadRegistry();
   </script>
 </body>

@@ -427,12 +427,46 @@ function countedAmount_(pledge) {
 
 /* ---------- public payload ---------- */
 
+const PUBLIC_PAYLOAD_CACHE_KEY = 'public-payload-v2';
+const PUBLIC_PAYLOAD_CACHE_SECONDS = 60;
+
+/**
+ * Every page load otherwise re-reads three sheets, which is most of the wait a
+ * guest sees. Memoise the payload for a minute; any write clears it, so the
+ * page never shows a stale total after someone pledges.
+ */
 function getPublicRegistryPayload_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(PUBLIC_PAYLOAD_CACHE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (error) {
+      // Fall through and rebuild it.
+    }
+  }
+
+  const payload = buildPublicRegistryPayload_();
+  try {
+    cache.put(PUBLIC_PAYLOAD_CACHE_KEY, JSON.stringify(payload), PUBLIC_PAYLOAD_CACHE_SECONDS);
+  } catch (error) {
+    // Payload too big to cache is not worth failing the request over.
+    console.error('Could not cache payload: ' + (error && error.message));
+  }
+  return payload;
+}
+
+function clearPublicPayloadCache_() {
+  try {
+    CacheService.getScriptCache().remove(PUBLIC_PAYLOAD_CACHE_KEY);
+  } catch (error) {
+    // Nothing to do; the entry expires on its own within a minute.
+  }
+}
+
+function buildPublicRegistryPayload_() {
   const config = pledgeConfig_();
   const pledges = readPledges_().filter((pledge) => pledge.status !== 'Cancelled');
-  const received = pledges
-    .filter((pledge) => pledge.status === 'Received')
-    .reduce((sum, pledge) => sum + countedAmount_(pledge), 0);
   const pledged = pledges.reduce((sum, pledge) => sum + countedAmount_(pledge), 0);
 
   const items = readItemsSafely_();
@@ -453,9 +487,10 @@ function getPublicRegistryPayload_() {
       closed: parseBoolean_(config.closed) === true && cleanString_(config.closed) !== '',
       closed_message: config.closed_message,
     },
+    // How much has actually landed in the bank is the owner's business, not
+    // the guests'. It stays in the sheet and never crosses the wire.
     totals: {
       pledged_sgd: pledged,
-      received_sgd: received,
       pledge_count: pledges.length,
       // First names only, and only from people who did not opt out.
       // Amounts are never attributed publicly.
@@ -572,6 +607,7 @@ function submitPledge_(body) {
       console.error('Confirmation email failed for ' + email + ': ' + (error && error.message));
     }
 
+    clearPublicPayloadCache_();
     refreshPledgeDashboard_();
 
     return {
@@ -652,6 +688,7 @@ function cancelPledge_(magicToken, pledgeId) {
 
     const headers = pledgeHeaderIndex_(found.sheet);
     found.sheet.getRange(found.rowNumber, headers.status + 1).setValue('Cancelled');
+    clearPublicPayloadCache_();
     refreshPledgeDashboard_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
@@ -703,6 +740,7 @@ function amendPledge_(magicToken, pledgeId, amount) {
     found.sheet.getRange(found.rowNumber, headers.amount_sgd + 1).setValue(Math.round(newAmount * 100) / 100);
     // Changing the amount invalidates any "I've sent it" claim against the old one.
     found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue('');
+    clearPublicPayloadCache_();
     refreshPledgeDashboard_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
@@ -726,6 +764,7 @@ function markPledgeSent_(magicToken, pledgeId) {
 
     const headers = pledgeHeaderIndex_(found.sheet);
     found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue(new Date().toISOString());
+    clearPublicPayloadCache_();
     refreshPledgeDashboard_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
@@ -916,7 +955,10 @@ function sendThankYouEmails_() {
     }
   });
 
-  if (sent) refreshPledgeDashboard_();
+  if (sent) {
+    clearPublicPayloadCache_();
+    refreshPledgeDashboard_();
+  }
   return { ok: true, sent, failed, remaining: Math.max(pending.length - batch.length, 0) };
 }
 

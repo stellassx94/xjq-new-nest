@@ -103,14 +103,16 @@ Manual refresh: `New Nest Pledges` → `Refresh pledge dashboard`.
 - Menu and internal functions end with `_` so they cannot be called from the public page. The only public entry points are `getRegistryDataForClient`, `submitPledgeForClient`, `requestPledgeLinkForClient`, `getMyPledgeForClient`, `cancelPledgeForClient`.
 - "Email me my pledge link" returns the same message whether or not the address exists, so the page can't be used to check who gave.
 - Emails, tokens and reference codes never appear in the public page data.
+- Neither does how much has actually been **received**. Friends see one pledged total; the received/outstanding split stays in your sheet.
 - Submissions are throttled per email (30s for pledges, 60s for link requests).
 
 ## Addresses
 
 | | |
 |---|---|
-| Share this with friends | https://stellassx94.github.io/xjq-new-nest/ |
+| Share this with friends | https://stellassx94.github.io/xjq-new-nest/?k=xjq-bishan |
+| Your dashboard, one tap | https://stellassx94.github.io/xjq-new-nest/sheet |
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbzATtggeQmfYTs-Hv49zbTka86GgdSRSIoCkWb1CEJ3LawTzVG6EgWrCKlxDz0MUoQW/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbwH0A7K05xYroWBBgFMXTqrh4BQx5BA5Pb3BftcxlpEWvxdbQOamYTwVMSxtaaB-bSU/exec` |
