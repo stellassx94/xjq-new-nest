@@ -374,6 +374,29 @@
     .tag-sent { background: #dce9f3; color: var(--blue); }
     .tag-cancelled { background: #ece7e2; color: var(--muted); }
 
+    /* ---------- returning guest ---------- */
+
+    .recall-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px 32px;
+      align-items: center;
+      justify-content: space-between;
+      border-style: dashed;
+    }
+    .recall-panel > * { flex: 1 1 280px; }
+    .recall-title {
+      font-family: var(--serif);
+      font-size: 1.6rem;
+      line-height: 1;
+      color: var(--green);
+    }
+    .recall-copy { margin-top: 6px; color: var(--muted); font-size: 0.88rem; }
+
+    .recall-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .recall-row input { flex: 1 1 190px; margin-top: 0; }
+    .recall-row .btn { flex: 0 0 auto; }
+
     /* ---------- what it goes toward ---------- */
 
     .item-list {
@@ -580,6 +603,31 @@
         </div>
       </section>
 
+      <!--
+        Recognising a returning guest cannot rest on localStorage alone. The
+        link gets shared over WhatsApp, whose in-app browser keeps its own
+        storage, so a friend who pledged on Monday is a stranger on Tuesday.
+        This is the recovery route, and it has to be visible rather than a
+        footnote under the form.
+      -->
+      <section id="returnSection" class="hidden">
+        <div class="panel recall-panel">
+          <div>
+            <h2 class="recall-title">Pledged already?</h2>
+            <p class="recall-copy">If you have chipped in before — on this phone or another one — we will email you a link to see it, change the amount, or tell us it has been sent.</p>
+          </div>
+          <form id="lookupForm">
+            <label class="sr-only" for="lookupEmail">The email you used</label>
+            <div class="recall-row">
+              <input id="lookupEmail" type="email" autocomplete="email" maxlength="200"
+                     placeholder="The email you used" required>
+              <button class="btn btn-quiet" type="submit" id="lookupSubmit">Send my link</button>
+            </div>
+            <p class="hint" id="lookupHint"></p>
+          </form>
+        </div>
+      </section>
+
       <!-- Confirmation lives in its own section so the form is only ever
            hidden, never destroyed. Replacing #pledgeSection used to delete
            elements that later renders still reached for. -->
@@ -644,19 +692,6 @@
           </div>
         </div>
 
-        <p class="hint" style="margin-top:18px;">
-          Pledged before, on another phone?
-          <button class="btn-link" type="button" id="showLookup">Email me my link</button>
-        </p>
-
-        <form id="lookupForm" class="panel hidden" style="margin-top:14px;max-width:460px;">
-          <div class="field">
-            <label for="lookupEmail">The email you used</label>
-            <input id="lookupEmail" type="email" autocomplete="email" maxlength="200" required>
-          </div>
-          <button class="btn btn-quiet" type="submit" id="lookupSubmit">Send me the link</button>
-          <p class="hint" id="lookupHint"></p>
-        </form>
         </div>
       </section>
 
@@ -690,6 +725,9 @@
     var STORE_KEY = "nest-key";
     var STORE_TOKEN = "nest-token";
     var STORE_PAYLOAD = "nest-payload";
+    // Kept only to prefill the "send me my link" field, so a returning guest
+    // does not have to remember which address they used.
+    var STORE_EMAIL = "nest-email";
 
     var params = new URLSearchParams(window.location.search);
 
@@ -882,12 +920,17 @@
     function renderMine() {
       var mine = state.mine;
       var section = $("mineSection");
+      var recall = $("returnSection");
 
       if (!mine || !mine.pledges || !mine.pledges.length) {
         section.classList.add("hidden");
+        // We do not know this visitor. Offer the way back in rather than
+        // silently showing them a blank pledge form they have already filled.
+        recall.classList.remove("hidden");
         return;
       }
 
+      recall.classList.add("hidden");
       section.classList.remove("hidden");
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
 
@@ -1068,6 +1111,7 @@
       apiPost(payload)
         .then(function (response) {
           if (!response || !response.ok) return fail((response && response.error) || "Something went wrong.");
+          remember(STORE_EMAIL, payload.guest_email);
           if (response.magic_token) {
             // Both matter: storage is for the next visit, the variable is for
             // the reload happening right now. Forgetting the second one is why
@@ -1088,17 +1132,14 @@
       }
     });
 
-    $("showLookup").addEventListener("click", function () {
-      $("lookupForm").classList.toggle("hidden");
-      if (!$("lookupForm").classList.contains("hidden")) $("lookupEmail").focus();
-    });
-
     $("lookupForm").addEventListener("submit", function (event) {
       event.preventDefault();
       var button = $("lookupSubmit");
+      var email = $("lookupEmail").value.trim();
       button.disabled = true;
+      remember(STORE_EMAIL, email);
 
-      apiPost({ action: "link", guest_email: $("lookupEmail").value.trim() })
+      apiPost({ action: "link", guest_email: email })
         .then(function (response) {
           button.disabled = false;
           $("lookupHint").textContent = (response && response.message)
@@ -1112,7 +1153,9 @@
 
     $("forgetMe").addEventListener("click", function () {
       forget(STORE_TOKEN);
+      forget(STORE_EMAIL);
       MAGIC_TOKEN = "";
+      $("lookupEmail").value = "";
       state.mine = null;
       renderMine();
       showToast("Forgotten on this device.");
@@ -1216,6 +1259,7 @@
       }
     }
 
+    $("lookupEmail").value = recall(STORE_EMAIL);
     renderCachedRegistry();
     loadRegistry();
   </script>
