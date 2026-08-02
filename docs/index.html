@@ -578,7 +578,15 @@
         </div>
       </section>
 
+      <!-- Confirmation lives in its own section so the form is only ever
+           hidden, never destroyed. Replacing #pledgeSection used to delete
+           elements that later renders still reached for. -->
+      <section id="confirmSection" class="hidden"></section>
+
       <section id="pledgeSection">
+        <div id="pledgeClosed" class="panel hidden"></div>
+
+        <div id="pledgeBody">
         <div class="section-head">
           <h2>Chip in any amount</h2>
           <p>Nothing to claim, nothing to buy — pledge whatever feels right and we will do the shopping. You will get an email with the PayNow details straight after.</p>
@@ -647,6 +655,7 @@
           <button class="btn btn-quiet" type="submit" id="lookupSubmit">Send me the link</button>
           <p class="hint" id="lookupHint"></p>
         </form>
+        </div>
       </section>
 
       <section id="itemsSection">
@@ -774,8 +783,9 @@
       if (settings.why_cash) { why.textContent = settings.why_cash; } else { why.classList.add("hidden"); }
 
       if (settings.closed) {
-        $("pledgeSection").innerHTML = '<div class="panel"><p>'
-          + escapeHtml(settings.closed_message || "Pledges are closed.") + "</p></div>";
+        $("pledgeBody").classList.add("hidden");
+        $("pledgeClosed").innerHTML = "<p>" + escapeHtml(settings.closed_message || "Pledges are closed.") + "</p>";
+        $("pledgeClosed").classList.remove("hidden");
         return;
       }
 
@@ -920,7 +930,9 @@
     function renderConfirmation(pledge, paynow) {
       // The button lives right here, where they land when they come back from
       // their banking app — not somewhere further up the page to go hunting for.
-      $("pledgeSection").innerHTML = '<div class="section-head">'
+      $("pledgeBody").classList.add("hidden");
+      $("confirmSection").classList.remove("hidden");
+      $("confirmSection").innerHTML = '<div class="section-head">'
         + "<h2>Thank you, " + escapeHtml((pledge.guest_name || "").split(" ")[0]) + "</h2>"
         + "<p>Your pledge of <strong>" + escapeHtml(money(pledge.amount_sgd))
         + "</strong> is noted, and we have emailed you these details too.</p></div>"
