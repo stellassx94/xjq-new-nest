@@ -57,26 +57,23 @@ The page never shows who gave how much — only first names and a count.
 
 **Someone changed their mind.** They can cancel from their own link, or you set `status` to `Cancelled`. Cancelled rows drop out of every total but stay in the log.
 
-## Setup, once
+## Setup
 
-**Backend first — the site cannot work until this is done.**
+Already done: script pushed and deployed, web app created, `Pledges` / `Pledge Config` / `Pledge Dashboard` tabs created, config filled in, QR hosted, site wired to the backend.
 
-1. Copy `apps-script-pledge/` into the Apps Script project bound to `Bishan Renovation` (`Code.gs`, `Index.html`, `appsscript.json`).
-2. In the spreadsheet: `New Nest Registry` → `Install/refresh automation`. Approve the consent screen — it now also asks to **send email as you**, which is what the confirmations and thank-yous use.
-3. Deploy → New deployment → **Web app**, Execute as **me**, Who has access **Anyone**. Copy the URL — it ends in `/exec`.
+**What is left — two things only you can do.**
 
-**Then connect the site.**
+1. **Authorize the script.** Open the [script editor](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit), pick `setupPledgeSheets_` from the function dropdown, hit **Run**, and click through the consent screen. It asks for this spreadsheet and to **send email as you** — that is the confirmation and thank-you mail. Google cannot grant a script its own permissions over an API; it needs your click.
 
-4. In `docs/index.html`, replace `PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE` (near the top of the `<script>` block) with that `/exec` URL. Commit and push — GitHub Pages redeploys in about a minute.
-5. In `Pledge Config`, set `site_url` to `https://stellassx94.github.io/new-nest/` so the links in your emails point at the nice URL.
+   Until this is done the site shows "Could not load the page" and the `/exec` URL returns *Access denied*.
 
-**Then fill in your details.**
+2. **Fill in two blanks** in `Pledge Config`: `paynow_number` and `paynow_name`. The QR alone works, but showing the number reassures people they are paying the right person.
 
-6. Set `paynow_qr_image_url` to `https://stellassx94.github.io/new-nest/paynow.jpg` — your QR is already hosted there.
-7. Fill in `goal_sgd`, `paynow_number`, `paynow_name`, and the headline copy.
-8. Open https://stellassx94.github.io/new-nest/ and make one test pledge to yourself before sharing it. Then set that row's `status` to `Cancelled`.
+Then open https://stellassx94.github.io/new-nest/, make one test pledge to yourself, check the email arrives, and set that row's `status` to `Cancelled`.
 
-**Note on step 3:** every time you edit `Code.gs`, you must deploy a *new version* (Deploy → Manage deployments → edit → Version: New version) for the change to go live. Saving alone does nothing.
+## Changing the code later
+
+Editing `Code.gs` is not enough — Apps Script needs a **new deployment version** (Deploy → Manage deployments → pencil → Version: New version) before the change goes live.
 
 ## Changing the page later
 
@@ -109,4 +106,6 @@ Manual refresh: `New Nest Registry` → `Refresh pledge dashboard`.
 |---|---|
 | Share this with friends | https://stellassx94.github.io/new-nest/ |
 | Repo | https://github.com/stellassx94/new-nest |
-| Apps Script `/exec` URL | _fill in after the first deploy_ |
+| Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
+| Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbwS7AvMRx9jLvj6rkYbl-Rn6I_MU-nFgIdzvdD5PAHx1KMJOf77MSduqvwHfetwnRi4/exec` |

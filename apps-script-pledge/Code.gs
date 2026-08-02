@@ -1,16 +1,52 @@
 /** @OnlyCurrentDoc */
 
+/**
+ * New Nest — pledge fund backend.
+ *
+ * Friends pledge any amount into one pot; the owner buys the items.
+ *
+ * The public page is a static site on GitHub Pages. This script is only its
+ * JSON API. Apps Script cannot answer a CORS preflight, so the browser must
+ * only ever send "simple" requests: GET, or POST with Content-Type text/plain.
+ * That is why every mutation arrives as a text/plain JSON body on doPost.
+ *
+ * `Registry Items` is maintained by the older registry script bound to this
+ * same spreadsheet. This one only reads it, to draw the inspiration grid.
+ */
+
 const REGISTRY_CONFIG = {
-  sourceSheet: 'Housewarming/Later Appliances',
-  inboxSheet: 'Paste Links Here',
   itemsSheet: 'Registry Items',
-  responsesSheet: 'Registry Responses',
-  summarySheet: 'Registry Summary',
   pledgesSheet: 'Pledges',
   pledgeDashboardSheet: 'Pledge Dashboard',
   pledgeConfigSheet: 'Pledge Config',
 };
 
+const ITEM_COLUMNS = [
+  'id',
+  'status',
+  'category',
+  'source_link',
+  'vendor',
+  'scraped_title',
+  'display_name',
+  'scraped_price',
+  'display_price_sgd',
+  'target_sgd',
+  'scraped_image',
+  'display_image',
+  'description',
+  'mode',
+  'reserved_by',
+  'remarks',
+  'source_sheet',
+  'source_row',
+  'sort_order',
+  'active',
+  'last_enriched',
+  'enrich_status',
+  'enrich_error',
+  'reference_title',
+];
 const PLEDGE_COLUMNS = [
   'timestamp',
   'pledge_id',
@@ -62,95 +98,6 @@ const PLEDGE_CONFIG_DEFAULTS = [
 
 const PLEDGE_TOKEN_TTL_DAYS = 30;
 const MAX_THANK_YOU_PER_RUN = 40;
-
-const ITEM_COLUMNS = [
-  'id',
-  'status',
-  'category',
-  'source_link',
-  'vendor',
-  'scraped_title',
-  'display_name',
-  'scraped_price',
-  'display_price_sgd',
-  'target_sgd',
-  'scraped_image',
-  'display_image',
-  'description',
-  'mode',
-  'reserved_by',
-  'remarks',
-  'source_sheet',
-  'source_row',
-  'sort_order',
-  'active',
-  'last_enriched',
-  'enrich_status',
-  'enrich_error',
-  'reference_title',
-];
-
-const RESPONSE_COLUMNS = [
-  'timestamp',
-  'item_id',
-  'guest_name',
-  'response_type',
-  'amount_sgd',
-  'note',
-  'response_id',
-  'edit_token',
-  'cancels_response_id',
-  'source',
-];
-
-const SUMMARY_COLUMNS = [
-  'Item',
-  'Reference',
-  'Status',
-  'Claimed By',
-  'Pooled SGD',
-  'Target SGD',
-  'Product Link',
-  'Last Action',
-  'Response Count',
-  'Source Row',
-  'Registry ID',
-];
-
-const INBOX_COLUMNS = [
-  'Link',
-  'Notes',
-  'Status',
-  'Processed Link',
-  'Category',
-  'Item',
-  'Description',
-  'Est. Cost',
-  'Image',
-  'Registry ID',
-  'Source Row',
-  'Last processed',
-  'Error',
-];
-
-const SOURCE_COLUMNS = {
-  registryId: 'Registry ID',
-  category: 'Category',
-  item: 'Item',
-  description: 'Description',
-  price: 'Est. Cost',
-  who: 'Who?',
-  link: 'Link',
-  remarks: 'Remarks',
-  status: 'Status',
-};
-
-const ALLOWED_RESPONSE_TYPES = ['reserve', 'contribute', 'purchased', 'note', 'undo'];
-const PUBLIC_RESPONSE_TYPES = ['reserve', 'contribute', 'undo'];
-const MAX_ENRICH_PER_RUN = 5;
-const MAX_INBOX_PER_RUN = 3;
-const AUTOMATION_TRIGGER_HANDLERS = ['handleRegistrySourceEdit_', 'runScheduledRegistryMaintenance_'];
-
 /**
  * The public site is a static page on GitHub Pages that calls this script as a
  * JSON API. Apps Script cannot answer a CORS preflight, so the browser must
@@ -169,14 +116,26 @@ function doGet(event) {
     return json_(getMyPledgeForClient(params.t));
   }
 
-  const template = HtmlService.createTemplateFromFile('Index');
-  // Injected raw into a JS string literal in Index.html, so strip anything
-  // that is not UUID-shaped before it gets there.
-  template.magicToken = cleanString_(params.t).replace(/[^A-Za-z0-9-]/g, '').slice(0, 120);
-  return template
-    .evaluate()
-    .setTitle(pledgeConfigValue_('page_headline') || 'Things for the New Nest')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+  // The page itself lives on GitHub Pages; this script is only the API.
+  // Anyone landing on the raw /exec URL gets forwarded there, carrying any
+  // magic-link token with them.
+  return redirectToSite_(params.t);
+}
+
+function redirectToSite_(token) {
+  const site = safePublicUrl_(pledgeConfigValue_('site_url'));
+  const cleanToken = cleanString_(token).replace(/[^A-Za-z0-9-]/g, '').slice(0, 120);
+
+  if (!site) {
+    return HtmlService.createHtmlOutput('<p>This is the registry backend. The page has not been linked yet.</p>');
+  }
+
+  const target = site.replace(/[?#].*$/, '').replace(/\/+$/, '')
+    + '/' + (cleanToken ? '?t=' + encodeURIComponent(cleanToken) : '');
+
+  return HtmlService
+    .createHtmlOutput('<script>window.top.location.href = ' + JSON.stringify(target) + ';</script>'
+      + '<p>Taking you to <a href="' + target + '" target="_top">the registry</a>…</p>')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -248,1327 +207,41 @@ function cancelPledgeForClient(magicToken, pledgeId) {
   }
 }
 
+function publicError_(error) {
+  const message = cleanString_(error && (error.message || error));
+  return message || 'Something went wrong. Please try again.';
+}
+
 function onOpen() {
   try {
     SpreadsheetApp.getUi()
-      .createMenu('New Nest Registry')
-      .addItem('Install/refresh automation', 'installRegistryAutomation_')
-      .addSeparator()
+      .createMenu('New Nest Pledges')
       .addItem('Refresh pledge dashboard', 'refreshPledgeDashboard_')
       .addItem('Send thank-you emails', 'sendThankYouEmailsFromMenu_')
       .addItem('Resend confirmation for selected row', 'resendConfirmationForSelectedRow_')
+      .addSeparator()
+      .addItem('Set up pledge tabs', 'setupPledgeSheets_')
       .addToUi();
   } catch (error) {
     // Spreadsheet UI is only available when opened as a sheet.
   }
 }
 
-function publicError_(error) {
-  const message = cleanString_(error && (error.message || error));
-  return message || 'Something went wrong. Please try again.';
-}
-
-function installRegistryAutomation_() {
-  assertEditorOnly_();
-  setupRegistrySheets_();
-  setupPledgeSheets_();
-  ScriptApp.getProjectTriggers().forEach((trigger) => {
-    if (AUTOMATION_TRIGGER_HANDLERS.includes(trigger.getHandlerFunction())) {
-      ScriptApp.deleteTrigger(trigger);
-    }
-  });
-  ScriptApp.newTrigger('handleRegistrySourceEdit_')
-    .forSpreadsheet(getSpreadsheet_())
-    .onEdit()
-    .create();
-  ScriptApp.newTrigger('runScheduledRegistryMaintenance_')
-    .timeBased()
-    .everyMinutes(15)
-    .create();
-  return {
-    ok: true,
-    triggers: AUTOMATION_TRIGGER_HANDLERS,
-    maintenance: runRegistryMaintenance_(false),
-  };
-}
-
-function runRegistryMaintenance_(force) {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) {
-    return { ok: false, skipped: true, error: 'Registry maintenance is already running.' };
-  }
-
-  try {
-    setupRegistrySheets_();
-    setupPledgeSheets_();
-    const inbox = processInboxLinks_();
-    const sync = syncFromSourceSheet_();
-    const enrich = enrichRegistryRows_(Boolean(force));
-    const summary = refreshRegistryOwnerViews_();
-    const pledges = refreshPledgeDashboard_();
-    return { ok: true, inbox, sync, enrich, summary, pledges };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function handleRegistrySourceEdit_(event) {
-  const range = event && event.range;
-  if (!range) return runRegistryMaintenance_(false);
-
-  const sheet = range.getSheet();
-  if (!sheet || ![REGISTRY_CONFIG.sourceSheet, REGISTRY_CONFIG.inboxSheet].includes(sheet.getName())) {
-    return { ok: true, ignored: true };
-  }
-
-  if (sheet.getName() === REGISTRY_CONFIG.inboxSheet) {
-    if (range.getRow() === 1 || range.getColumn() <= INBOX_COLUMNS.length) {
-      return runRegistryMaintenance_(false);
-    }
-    return { ok: true, ignored: true };
-  }
-
-  if (range.getRow() === 1) return runRegistryMaintenance_(false);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(cleanString_);
-  const watchedColumns = Object.keys(SOURCE_COLUMNS)
-    .map((key) => headers.indexOf(SOURCE_COLUMNS[key]) + 1)
-    .filter((column) => column > 0);
-  const editStart = range.getColumn();
-  const editEnd = editStart + range.getNumColumns() - 1;
-  const touchesSourceColumns = watchedColumns.some((column) => column >= editStart && column <= editEnd);
-
-  if (!touchesSourceColumns) return { ok: true, ignored: true };
-  return runRegistryMaintenance_(false);
-}
-
-function runScheduledRegistryMaintenance_() {
-  return runRegistryMaintenance_(false);
-}
-
-function processInboxLinks_() {
-  const inbox = getSheet_(REGISTRY_CONFIG.inboxSheet);
-  const source = getSheet_(REGISTRY_CONFIG.sourceSheet);
-  const items = getSheet_(REGISTRY_CONFIG.itemsSheet);
-  ensureHeader_(inbox, INBOX_COLUMNS);
-  ensureSourceRegistryIdColumn_(source);
-
-  const inboxValues = inbox.getDataRange().getValues();
-  if (inboxValues.length < 2) return { processed: 0, skipped: 0, failed: 0 };
-
-  const inboxHeaders = inboxValues[0].map(cleanString_);
-  const inboxIndex = headerIndex_(inboxHeaders, INBOX_COLUMNS);
-  const sourceHeaders = source.getRange(1, 1, 1, source.getLastColumn()).getValues()[0].map(cleanString_);
-  const sourceIndex = Object.keys(SOURCE_COLUMNS).reduce((acc, key) => {
-    acc[key] = sourceHeaders.indexOf(SOURCE_COLUMNS[key]);
-    return acc;
-  }, {});
-  validateSourceHeaders_(sourceIndex);
-
-  const existingItems = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS);
-  const usedIds = new Set(existingItems.map((item) => cleanString_(item.id)).filter(Boolean));
-  const byId = {};
-  existingItems.forEach((item, offset) => {
-    const id = cleanString_(item.id);
-    if (id) byId[id] = { item, rowNumber: offset + 2 };
-  });
-
-  let processed = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  inboxValues.slice(1).forEach((row, offset) => {
-    if (processed >= MAX_INBOX_PER_RUN) {
-      skipped += 1;
-      return;
-    }
-
-    const rowNumber = offset + 2;
-    const link = safePublicUrl_(cell_(row, inboxIndex.Link));
-    if (!link) {
-      skipped += 1;
-      return;
-    }
-
-    const status = cleanString_(cell_(row, inboxIndex.Status)).toLowerCase();
-    const processedLink = safePublicUrl_(cell_(row, inboxIndex['Processed Link']));
-    const existingId = cleanString_(cell_(row, inboxIndex['Registry ID']));
-    const sourceRow = Number(cell_(row, inboxIndex['Source Row']));
-    if (status === 'done' && processedLink === link && existingId && sourceRow > 1) {
-      skipped += 1;
-      return;
-    }
-
-    writeNamedCells_(inbox, rowNumber, inboxIndex, {
-      Status: 'Processing',
-      Error: '',
-    });
-
-    try {
-      const metadata = fetchProductMetadata_(link);
-      const fallbackName = hostname_(link) || 'Review pasted link';
-      const referenceTitle = referenceTitleFromParts_(
-        cleanString_(cell_(row, inboxIndex.Item)),
-        metadata.description || cleanString_(cell_(row, inboxIndex.Description)),
-        cleanProductTitle_(metadata.title)
-      );
-      const title = shortDisplayName_(
-        cleanString_(cell_(row, inboxIndex.Item)),
-        metadata.description || cleanString_(cell_(row, inboxIndex.Description)),
-        referenceTitle || fallbackName
-      );
-      const category = cleanString_(cell_(row, inboxIndex.Category)) || guessCategory_(title + ' ' + metadata.description + ' ' + link);
-      const description = metadata.description || cleanString_(cell_(row, inboxIndex.Description)) || referenceTitle || title;
-      const price = metadata.price || cleanString_(cell_(row, inboxIndex['Est. Cost']));
-      const notes = cleanString_(cell_(row, inboxIndex.Notes));
-      const id = existingId || uniqueIdFromSet_(slugify_(title) || slugify_(fallbackName) || 'registry-item', usedIds);
-      usedIds.add(id);
-
-      const targetSourceRow = sourceRow > 1 ? sourceRow : source.getLastRow() + 1;
-      writeNamedCells_(source, targetSourceRow, sourceIndex, {
-        category,
-        item: title,
-        description,
-        price,
-        link,
-        remarks: notes,
-        status: metadata.title ? 'TBC' : 'Draft',
-        registryId: id,
-      });
-
-      const existing = byId[id];
-      const record = {
-        id,
-        status: metadata.title ? 'TBC' : 'Draft',
-        category,
-        source_link: link,
-        vendor: metadata.vendor || hostname_(link),
-        scraped_title: metadata.title,
-        display_name: title,
-        scraped_price: metadata.price,
-        display_price_sgd: price,
-        target_sgd: numericAmount_(price),
-        scraped_image: metadata.image,
-        display_image: metadata.image,
-        description,
-        mode: existing ? existing.item.mode : 'claim_or_contribute',
-        reserved_by: existing ? existing.item.reserved_by : '',
-        remarks: notes,
-        source_sheet: REGISTRY_CONFIG.sourceSheet,
-        source_row: String(targetSourceRow),
-        sort_order: existing ? existing.item.sort_order : String(Math.max(1, targetSourceRow - 2)),
-        active: existing ? existing.item.active : 'TRUE',
-        last_enriched: metadata.title || metadata.price || metadata.image ? new Date().toISOString() : '',
-        enrich_status: metadata.title || metadata.price || metadata.image ? 'OK' : 'Needs review',
-        enrich_error: metadata.title || metadata.price || metadata.image ? '' : 'No useful product metadata found',
-        reference_title: referenceTitle || title,
-      };
-      writeObjectRow_(items, existing ? existing.rowNumber : items.getLastRow() + 1, ITEM_COLUMNS, record);
-
-      writeNamedCells_(inbox, rowNumber, inboxIndex, {
-        Status: metadata.title ? 'Done' : 'Needs review',
-        'Processed Link': link,
-        Category: category,
-        Item: title,
-        Description: description,
-        'Est. Cost': price,
-        Image: metadata.image,
-        'Registry ID': id,
-        'Source Row': String(targetSourceRow),
-        'Last processed': new Date().toISOString(),
-        Error: metadata.title || metadata.price || metadata.image ? '' : 'No useful product metadata found',
-      });
-      processed += 1;
-    } catch (error) {
-      writeNamedCells_(inbox, rowNumber, inboxIndex, {
-        Status: 'Needs review',
-        'Last processed': new Date().toISOString(),
-        Error: error.message || String(error),
-      });
-      failed += 1;
-    }
-  });
-
-  return { processed, skipped, failed };
-}
-
-function setupRegistrySheets_() {
-  const spreadsheet = getSpreadsheet_();
-  const inbox = spreadsheet.getSheetByName(REGISTRY_CONFIG.inboxSheet) || spreadsheet.insertSheet(REGISTRY_CONFIG.inboxSheet);
-  const items = spreadsheet.getSheetByName(REGISTRY_CONFIG.itemsSheet) || spreadsheet.insertSheet(REGISTRY_CONFIG.itemsSheet);
-  const responses = spreadsheet.getSheetByName(REGISTRY_CONFIG.responsesSheet) || spreadsheet.insertSheet(REGISTRY_CONFIG.responsesSheet);
-  const summary = spreadsheet.getSheetByName(REGISTRY_CONFIG.summarySheet) || spreadsheet.insertSheet(REGISTRY_CONFIG.summarySheet);
-  ensureHeader_(inbox, INBOX_COLUMNS);
-  ensureHeader_(items, ITEM_COLUMNS);
-  ensureHeader_(responses, RESPONSE_COLUMNS);
-  ensureExactHeader_(summary, SUMMARY_COLUMNS);
-  inbox.setFrozenRows(1);
-  items.setFrozenRows(1);
-  responses.setFrozenRows(1);
-  summary.setFrozenRows(1);
-  return { ok: true };
-}
-
-function appendPublicResponse_(body) {
-  setupRegistrySheets_();
-  const lock = LockService.getScriptLock();
-  lock.waitLock(5000);
-  try {
-    const response = validateResponse_(body);
-    if (!PUBLIC_RESPONSE_TYPES.includes(response.response_type)) {
-      throw new Error('This response type is not available from the public registry.');
-    }
-
-    const items = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS).map(normalizeItem_);
-    const item = items.find((candidate) => candidate.id === response.item_id);
-    if (!item) throw new Error('This item could not be found.');
-    if (!isPublicItem_(item)) {
-      throw new Error('This item is not currently available.');
-    }
-
-    const responses = readSheetObjects_(REGISTRY_CONFIG.responsesSheet, RESPONSE_COLUMNS).map(normalizeResponse_);
-    if (response.response_type === 'undo') {
-      validateUndoFromResponses_(responses, response);
-      response.response_id = Utilities.getUuid();
-      response.edit_token = '';
-    } else {
-      validateOpenResponse_(item, responses, response);
-      response.response_id = Utilities.getUuid();
-      response.edit_token = Utilities.getUuid();
-    }
-    response.source = 'web';
-
-    getSheet_(REGISTRY_CONFIG.responsesSheet).appendRow([
-      new Date(),
-      response.item_id,
-      response.guest_name,
-      response.response_type,
-      response.amount_sgd,
-      response.note,
-      response.response_id,
-      response.edit_token,
-      response.cancels_response_id,
-      response.source,
-    ].map(safeSheetCell_));
-
-    refreshRegistryOwnerViews_();
-
-    return {
-      ok: true,
-      response_id: response.response_id,
-      edit_token: response.edit_token,
-    };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function validateOpenResponse_(item, responses, response) {
-  const active = activeResponses_(responses);
-  const itemResponses = active.filter((row) => row.item_id === item.id || row.gift_id === item.id);
-  const sourceReservation = cleanString_(item.reserved_by);
-  const reserved = sourceReservation ? { guest_name: sourceReservation, source: 'source-who' } : itemResponses.find((row) => ['reserve', 'purchased'].includes(row.response_type));
-  const target = Number(item.target_sgd) || Number(numericAmount_(item.price_sgd)) || 0;
-  const contributed = itemResponses
-    .filter((row) => row.response_type === 'contribute')
-    .reduce((sum, row) => sum + (Number(row.amount_sgd) || 0), 0);
-
-  if (response.response_type === 'reserve') {
-    if (item.mode !== 'multi_claim' && (reserved || (target > 0 && contributed >= target))) {
-      throw new Error('This item is already covered.');
-    }
-    return;
-  }
-
-  if (response.response_type === 'contribute') {
-    if (item.mode === 'multi_claim') throw new Error('This item is not set up for pooled contributions.');
-    if (reserved) throw new Error('This item is already covered.');
-    if (response.amount_sgd === '' || !isFinite(response.amount_sgd) || response.amount_sgd <= 0) {
-      throw new Error('amount_sgd must be a positive number');
-    }
-    if (target > 0 && contributed >= target) throw new Error('This item is already fully pooled.');
-    if (target > 0 && contributed + Number(response.amount_sgd) > target) {
-      throw new Error('That amount is more than the remaining target.');
-    }
-  }
-}
-
-function refreshRegistryOwnerViews_() {
-  setupRegistrySheets_();
-  const itemRows = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS);
-  const responses = readSheetObjects_(REGISTRY_CONFIG.responsesSheet, RESPONSE_COLUMNS).map(normalizeResponse_);
-  const active = activeResponses_(responses);
-  const webReserveNamesByItem = responseNamesByItem_(responses.filter((response) => {
-    return cleanString_(response.source).toLowerCase() === 'web'
-      && ['reserve', 'purchased'].includes(cleanString_(response.response_type).toLowerCase());
-  }));
-
-  mirrorWebClaimsToSource_(itemRows, active, webReserveNamesByItem);
-  writeRegistrySummary_(itemRows, responses, active);
-
-  return { ok: true, items: itemRows.length, active_responses: active.length };
-}
-
-function mirrorWebClaimsToSource_(itemRows, activeResponses, webReserveNamesByItem) {
-  const source = getSheet_(REGISTRY_CONFIG.sourceSheet);
-  const items = getSheet_(REGISTRY_CONFIG.itemsSheet);
-  const sourceHeaders = source.getRange(1, 1, 1, source.getLastColumn()).getValues()[0].map(cleanString_);
-  const sourceIndex = Object.keys(SOURCE_COLUMNS).reduce((acc, key) => {
-    acc[key] = sourceHeaders.indexOf(SOURCE_COLUMNS[key]);
-    return acc;
-  }, {});
-  validateSourceHeaders_(sourceIndex);
-
-  itemRows.forEach((item, offset) => {
-    if (cleanString_(item.source_sheet) !== REGISTRY_CONFIG.sourceSheet) return;
-    const id = cleanString_(item.id);
-    const rowNumber = Number(item.source_row);
-    if (!id || rowNumber <= 1) return;
-
-    const reserve = activeResponses.find((response) => {
-      return (response.item_id === id || response.gift_id === id)
-        && ['reserve', 'purchased'].includes(cleanString_(response.response_type));
-    });
-    const webReserveNames = webReserveNamesByItem[id] || new Set();
-    const sourceRow = source.getRange(rowNumber, 1, 1, source.getLastColumn()).getValues()[0];
-    const currentWho = cell_(sourceRow, sourceIndex.who);
-    const currentStatus = cell_(sourceRow, sourceIndex.status);
-    const currentItemReservedBy = cleanString_(item.reserved_by);
-    const statusIsGeneratedCovered = cleanString_(currentStatus).toLowerCase() === 'covered';
-
-    const sourceUpdates = {};
-    const itemUpdates = {};
-
-    if (reserve) {
-      sourceUpdates.who = reserve.guest_name;
-      sourceUpdates.status = 'Covered';
-      itemUpdates.reserved_by = reserve.guest_name;
-      itemUpdates.status = 'Covered';
-    } else {
-      const hadWebReserve = webReserveNames.has(currentWho) || webReserveNames.has(currentItemReservedBy);
-      if (hadWebReserve) {
-        if (webReserveNames.has(currentWho)) sourceUpdates.who = '';
-        if (statusIsGeneratedCovered) sourceUpdates.status = 'TBC';
-        if (webReserveNames.has(currentItemReservedBy)) itemUpdates.reserved_by = '';
-        if (cleanString_(item.status).toLowerCase() === 'covered') itemUpdates.status = 'TBC';
-      }
-    }
-
-    if (Object.keys(sourceUpdates).length) {
-      writeNamedCells_(source, rowNumber, sourceIndex, sourceUpdates);
-    }
-
-    if (Object.keys(itemUpdates).length) {
-      writeObjectRow_(items, offset + 2, ITEM_COLUMNS, Object.assign({}, item, itemUpdates));
-      Object.keys(itemUpdates).forEach((key) => {
-        item[key] = itemUpdates[key];
-      });
-    }
-  });
-}
-
-function writeRegistrySummary_(itemRows, responses, activeResponses) {
-  const summary = getSheet_(REGISTRY_CONFIG.summarySheet);
-  ensureExactHeader_(summary, SUMMARY_COLUMNS);
-
-  const rows = itemRows
-    .map(normalizeItem_)
-    .filter(isPublicItem_)
-    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
-    .map((item) => {
-      const activeItemResponses = itemResponsesForId_(activeResponses, item.id);
-      const allItemResponses = itemResponsesForId_(responses, item.id).filter((response) => !isLegacySourceReservation_(response));
-      const reserve = activeItemResponses.find((response) => ['reserve', 'purchased'].includes(response.response_type));
-      const contributed = activeItemResponses
-        .filter((response) => response.response_type === 'contribute')
-        .reduce((sum, response) => sum + (Number(response.amount_sgd) || 0), 0);
-      const target = Number(item.target_sgd) || Number(numericAmount_(item.price_sgd)) || 0;
-      const claimedBy = reserve ? reserve.guest_name : cleanString_(item.reserved_by);
-      const status = claimedBy || (target > 0 && contributed >= target)
-        ? 'Covered'
-        : contributed > 0
-          ? 'Pooling'
-          : 'Open';
-      const latest = latestResponse_(allItemResponses);
-      const action = latest
-        ? [latest.timestamp, latest.guest_name, latest.response_type].filter(Boolean).join(' | ')
-        : '';
-
-      return [
-        item.name,
-        item.reference_title,
-        status,
-        claimedBy,
-        contributed || '',
-        target || '',
-        item.link,
-        action,
-        allItemResponses.length || '',
-        item.source_row ? REGISTRY_CONFIG.sourceSheet + '!' + item.source_row : '',
-        item.id,
-      ].map(safeSheetCell_);
-    });
-
-  const lastRow = Math.max(summary.getLastRow(), 2);
-  summary.getRange(2, 1, lastRow - 1, SUMMARY_COLUMNS.length).clearContent();
-  if (rows.length) {
-    summary.getRange(2, 1, rows.length, SUMMARY_COLUMNS.length).setValues(rows);
-  }
-}
-
-function itemResponsesForId_(responses, itemId) {
-  return (responses || []).filter((response) => response.item_id === itemId || response.gift_id === itemId);
-}
-
-function latestResponse_(responses) {
-  return (responses || []).reduce((latest, response) => {
-    if (!latest) return response;
-    return responseTimestamp_(response) >= responseTimestamp_(latest) ? response : latest;
-  }, null);
-}
-
-function responseTimestamp_(response) {
-  if (response.timestamp instanceof Date) return response.timestamp.getTime();
-  const timestamp = Date.parse(response.timestamp);
-  return isNaN(timestamp) ? 0 : timestamp;
-}
-
-function responseNamesByItem_(responses) {
-  return (responses || []).reduce((acc, response) => {
-    const id = cleanString_(response.item_id || response.gift_id);
-    const name = cleanString_(response.guest_name);
-    if (!id || !name) return acc;
-    if (!acc[id]) acc[id] = new Set();
-    acc[id].add(name);
-    return acc;
-  }, {});
-}
-
-function syncFromSourceSheet_() {
-  setupRegistrySheets_();
-  const source = getSheet_(REGISTRY_CONFIG.sourceSheet);
-  const items = getSheet_(REGISTRY_CONFIG.itemsSheet);
-  ensureSourceRegistryIdColumn_(source);
-  const sourceValues = source.getDataRange().getValues();
-  if (sourceValues.length < 2) return { imported: 0, skipped: 0 };
-
-  const sourceHeaders = sourceValues[0].map(cleanString_);
-  const sourceIndex = Object.keys(SOURCE_COLUMNS).reduce((acc, key) => {
-    acc[key] = sourceHeaders.indexOf(SOURCE_COLUMNS[key]);
-    return acc;
-  }, {});
-  validateSourceHeaders_(sourceIndex);
-
-  const itemObjects = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS);
-  const byId = {};
-  const usedIds = new Set();
-  itemObjects.forEach((item, offset) => {
-    const id = cleanString_(item.id);
-    if (!id) return;
-    usedIds.add(id);
-    byId[id] = { item, rowNumber: offset + 2 };
-  });
-
-  let imported = 0;
-  let skipped = 0;
-  const seenSourceIds = new Set();
-
-  sourceValues.slice(1).forEach((row, index) => {
-    const rowNumber = index + 2;
-    let sourceId = cell_(row, sourceIndex.registryId);
-    const category = cell_(row, sourceIndex.category);
-    const itemName = cell_(row, sourceIndex.item);
-    const description = cell_(row, sourceIndex.description);
-    const price = cell_(row, sourceIndex.price);
-    const who = cell_(row, sourceIndex.who);
-    const link = sourceLinkFromCell_(source, rowNumber, sourceIndex.link, cell_(row, sourceIndex.link));
-    const remarks = cell_(row, sourceIndex.remarks);
-    const status = cell_(row, sourceIndex.status);
-    const hasUsefulData = [category, itemName, description, price, who, link, remarks].some((value) => value && value !== '/');
-
-    if (!hasUsefulData) {
-      skipped += 1;
-      return;
-    }
-
-    if (!sourceId) {
-      sourceId = uniqueIdFromSet_(slugify_([category, itemName, description].filter(Boolean).join(' ')) || 'registry-item', usedIds);
-      source.getRange(rowNumber, sourceIndex.registryId + 1).setValue(sourceId);
-    } else if (seenSourceIds.has(sourceId)) {
-      sourceId = uniqueIdFromSet_(sourceId, usedIds);
-      source.getRange(rowNumber, sourceIndex.registryId + 1).setValue(sourceId);
-    }
-
-    usedIds.add(sourceId);
-    seenSourceIds.add(sourceId);
-
-    const existing = byId[sourceId];
-    const existingLink = existing ? cleanString_(existing.item.source_link) : '';
-    const linkChanged = Boolean(existing && link && link !== existingLink);
-    const id = sourceId;
-    const referenceTitle = referenceTitleFromParts_(
-      itemName,
-      description,
-      existing && !linkChanged ? existing.item.reference_title || existing.item.scraped_title : ''
-    );
-    const sourceDisplayName = displayNameFromSource_(itemName, description, referenceTitle, category);
-    const displayName = sourceDisplayName || (existing && !linkChanged ? existing.item.display_name : '');
-    const displayPrice = shouldAutofillSourceCell_(price) ? (existing && !linkChanged ? existing.item.display_price_sgd : price) : price;
-    const target = numericAmount_(displayPrice) || (existing && !linkChanged ? existing.item.target_sgd : '');
-    const sortOrder = existing ? existing.item.sort_order : String(rowNumber - 2);
-    const itemStatus = status && status !== '/' ? status : 'Draft';
-
-    const record = {
-      id,
-      status: itemStatus,
-      category,
-      source_link: link,
-      vendor: existing && !linkChanged ? existing.item.vendor : '',
-      scraped_title: existing && !linkChanged ? existing.item.scraped_title : '',
-      display_name: displayName,
-      scraped_price: existing && !linkChanged ? existing.item.scraped_price : '',
-      display_price_sgd: displayPrice,
-      target_sgd: target,
-      scraped_image: existing && !linkChanged ? existing.item.scraped_image : '',
-      display_image: existing && !linkChanged ? existing.item.display_image : '',
-      description,
-      mode: existing ? existing.item.mode : 'claim_or_contribute',
-      reserved_by: who,
-      remarks,
-      source_sheet: REGISTRY_CONFIG.sourceSheet,
-      source_row: String(rowNumber),
-      sort_order: sortOrder,
-      active: existing ? existing.item.active : 'TRUE',
-      last_enriched: existing && !linkChanged ? existing.item.last_enriched : '',
-      enrich_status: link ? (existing && !linkChanged ? existing.item.enrich_status || 'Needs enrich' : 'Needs enrich') : 'Pending link',
-      enrich_error: existing && !linkChanged ? existing.item.enrich_error : '',
-      reference_title: referenceTitle,
-    };
-
-    writeObjectRow_(items, existing ? existing.rowNumber : items.getLastRow() + 1, ITEM_COLUMNS, record);
-    imported += 1;
-  });
-
-  itemObjects.forEach((item, offset) => {
-    const id = cleanString_(item.id);
-    if (cleanString_(item.source_sheet) !== REGISTRY_CONFIG.sourceSheet) return;
-    if (!id || seenSourceIds.has(id)) return;
-    if (parseBoolean_(item.active) === false) return;
-    const inactive = Object.assign({}, item, { active: 'FALSE', status: 'Inactive' });
-    writeObjectRow_(items, offset + 2, ITEM_COLUMNS, inactive);
-  });
-
-  return { imported, skipped };
-}
-
-function enrichRegistryRows_(force) {
-  setupRegistrySheets_();
-  const sheet = getSheet_(REGISTRY_CONFIG.itemsSheet);
-  const rows = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS);
-  let enriched = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  rows.forEach((item, index) => {
-    if (enriched >= MAX_ENRICH_PER_RUN) {
-      skipped += 1;
-      return;
-    }
-
-    const rowNumber = index + 2;
-    const link = cleanString_(item.source_link);
-    if (!link) {
-      skipped += 1;
-      return;
-    }
-
-    const alreadyOk = cleanString_(item.enrich_status).toLowerCase() === 'ok';
-    if (alreadyOk && !force) {
-      skipped += 1;
-      return;
-    }
-
-    try {
-      const metadata = fetchProductMetadata_(link);
-      const sourceRowNumber = Number(item.source_row);
-      const referenceTitle = referenceTitleFromParts_(
-        item.display_name,
-        metadata.description || item.description,
-        metadata.title || item.reference_title || item.scraped_title
-      );
-      const displayName = shouldShortenDisplayName_(item.display_name, referenceTitle)
-        ? shortDisplayName_(item.display_name, metadata.description || item.description, referenceTitle, item.category)
-        : item.display_name;
-      const record = Object.assign({}, item, {
-        vendor: metadata.vendor || item.vendor,
-        scraped_title: metadata.title || item.scraped_title,
-        scraped_price: metadata.price || item.scraped_price,
-        scraped_image: metadata.image || item.scraped_image,
-        display_name: displayName || metadata.title || '',
-        display_price_sgd: item.display_price_sgd || metadata.price || '',
-        target_sgd: item.target_sgd || numericAmount_(metadata.price),
-        display_image: item.display_image || metadata.image || '',
-        description: item.description || metadata.description || '',
-        last_enriched: new Date().toISOString(),
-        enrich_status: metadata.title || metadata.price || metadata.image ? 'OK' : 'Partial',
-        enrich_error: metadata.title || metadata.price || metadata.image ? '' : 'No useful product metadata found',
-        reference_title: referenceTitle,
-      });
-      writeObjectRow_(sheet, rowNumber, ITEM_COLUMNS, record);
-      if (sourceRowNumber > 1 && cleanString_(item.source_sheet) === REGISTRY_CONFIG.sourceSheet) {
-        writeMetadataToSourceRow_(sourceRowNumber, metadata, record);
-      }
-      enriched += 1;
-    } catch (error) {
-      const record = Object.assign({}, item, {
-        last_enriched: new Date().toISOString(),
-        enrich_status: 'Error',
-        enrich_error: error.message || String(error),
-      });
-      writeObjectRow_(sheet, rowNumber, ITEM_COLUMNS, record);
-      failed += 1;
-    }
-  });
-
-  return { enriched, skipped, failed };
-}
-
-function writeMetadataToSourceRow_(rowNumber, metadata, item) {
-  const source = getSheet_(REGISTRY_CONFIG.sourceSheet);
-  const headers = source.getRange(1, 1, 1, source.getLastColumn()).getValues()[0].map(cleanString_);
-  const sourceIndex = Object.keys(SOURCE_COLUMNS).reduce((acc, key) => {
-    acc[key] = headers.indexOf(SOURCE_COLUMNS[key]);
-    return acc;
-  }, {});
-  validateSourceHeaders_(sourceIndex);
-
-  const current = source.getRange(rowNumber, 1, 1, source.getLastColumn()).getValues()[0];
-  const title = cleanProductTitle_(metadata.title) || cleanString_(item.display_name || item.scraped_title);
-  const price = metadata.price || item.display_price_sgd || item.scraped_price;
-  const description = metadata.description || item.description;
-
-  const updates = {};
-  if (shouldAutofillSourceCell_(cell_(current, sourceIndex.item)) && title) updates.item = title;
-  if (shouldAutofillSourceCell_(cell_(current, sourceIndex.description)) && description) updates.description = description;
-  if (shouldAutofillSourceCell_(cell_(current, sourceIndex.price)) && price) updates.price = price;
-  if (shouldAutofillSourceCell_(cell_(current, sourceIndex.status))) updates.status = metadata.title || metadata.price || metadata.image ? 'TBC' : 'Needs review';
-
-  if (Object.keys(updates).length) {
-    writeNamedCells_(source, rowNumber, sourceIndex, updates);
-  }
-}
-
-function getRegistryData_() {
-  const items = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS, { repairHeaders: false })
-    .map(normalizeItem_)
-    .filter(isPublicItem_);
-
-  const responses = readSheetObjects_(REGISTRY_CONFIG.responsesSheet, RESPONSE_COLUMNS, { repairHeaders: false })
-    .map(normalizeResponse_)
-    .filter((response) => !isLegacySourceReservation_(response));
-  const reservedItems = new Set(activeResponses_(responses)
-    .filter((response) => ['reserve', 'purchased'].includes(response.response_type))
-    .map((response) => response.item_id || response.gift_id));
-
-  items.forEach((item) => {
-    const reservedBy = cleanString_(item.reserved_by);
-    if (!reservedBy || reservedItems.has(item.id)) return;
-    responses.push({
-      timestamp: '',
-      gift_id: item.id,
-      item_id: item.id,
-      guest_name: reservedBy,
-      response_type: 'reserve',
-      amount_sgd: '',
-      note: 'Imported from Who? column',
-      response_id: 'source-' + item.id + '-' + slugify_(reservedBy),
-      cancels_response_id: '',
-      source: 'source-who',
-    });
-  });
-
-  return {
-    gifts: items,
-    responses,
-  };
-}
-
-function fetchProductMetadata_(url) {
-  const safeUrl = safePublicUrl_(url);
-  if (!safeUrl) throw new Error('Product link must start with http:// or https://');
-  const response = UrlFetchApp.fetch(safeUrl, {
-    followRedirects: true,
-    muteHttpExceptions: true,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 Registry Metadata Bot',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    },
-  });
-  const status = response.getResponseCode();
-  if (status >= 400) throw new Error('Fetch failed with HTTP ' + status);
-
-  const finalUrl = safePublicUrl_(response.getFinalUrl && response.getFinalUrl()) || safeUrl;
-  const html = response.getContentText();
-  const jsonLd = extractJsonLdProduct_(html);
-
-  return {
-    vendor: hostname_(finalUrl),
-    title: cleanProductTitle_(jsonLd.name || meta_(html, 'og:title') || meta_(html, 'twitter:title') || titleTag_(html)),
-    description: cleanString_(jsonLd.description || meta_(html, 'og:description') || meta_(html, 'description')),
-    price: cleanPrice_(jsonLd.price || meta_(html, 'product:price:amount') || meta_(html, 'og:price:amount') || meta_(html, 'twitter:data1') || priceFromHtml_(html)),
-    image: absolutizeUrl_(jsonLd.image || meta_(html, 'og:image') || meta_(html, 'twitter:image'), finalUrl),
-  };
-}
-
-function extractJsonLdProduct_(html) {
-  const scripts = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
-  for (const match of scripts) {
-    const raw = decodeHtml_(match[1]).trim();
-    try {
-      const parsed = JSON.parse(raw);
-      const product = findProductNode_(parsed);
-      if (product) {
-        const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
-        const image = Array.isArray(product.image) ? product.image[0] : product.image;
-        return {
-          name: cleanString_(product.name),
-          description: cleanString_(product.description),
-          price: cleanString_(offer.price || offer.lowPrice || offer.highPrice),
-          image: cleanString_(image),
-        };
-      }
-    } catch (error) {
-      // Ignore malformed JSON-LD and keep scanning.
-    }
-  }
-  return {};
-}
-
-function findProductNode_(node) {
-  if (!node || typeof node !== 'object') return null;
-  const type = node['@type'];
-  if (String(Array.isArray(type) ? type.join(',') : type).toLowerCase().includes('product')) return node;
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = findProductNode_(child);
-      if (found) return found;
-    }
-  }
-  if (node['@graph']) return findProductNode_(node['@graph']);
-  return null;
-}
-
-function meta_(html, name) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const patterns = [
-    new RegExp("<meta[^>]+property=[\"']" + escaped + "[\"'][^>]+content=[\"']([^\"']+)[\"'][^>]*>", 'i'),
-    new RegExp("<meta[^>]+name=[\"']" + escaped + "[\"'][^>]+content=[\"']([^\"']+)[\"'][^>]*>", 'i'),
-    new RegExp("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']" + escaped + "[\"'][^>]*>", 'i'),
-    new RegExp("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+name=[\"']" + escaped + "[\"'][^>]*>", 'i'),
-  ];
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match) return decodeHtml_(match[1]);
-  }
-  return '';
-}
-
-function titleTag_(html) {
-  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return match ? decodeHtml_(match[1]) : '';
-}
-
-function priceFromHtml_(html) {
-  const match = html.match(/(?:S\$|SGD|\$)\s?[\d,.]+/i);
-  return match ? match[0] : '';
-}
-
-function cleanProductTitle_(title) {
-  return cleanString_(title).replace(/\s+[|-]\s+.*$/, '').trim();
-}
-
-function cleanPrice_(value) {
-  const text = cleanString_(value);
-  if (!text) return '';
-  const amount = text.match(/[\d,.]+/);
-  if (!amount) return text;
-  return 'SGD ' + amount[0].replace(/\.00$/, '');
-}
-
-function numericAmount_(value) {
-  const match = cleanString_(value).replace(/,/g, '').match(/\d+(?:\.\d+)?/);
-  return match ? match[0] : '';
-}
-
-function absolutizeUrl_(url, base) {
-  const value = cleanString_(url);
-  if (!value) return '';
-  const absolute = safePublicUrl_(value);
-  if (absolute) return absolute;
-
-  const safeBase = safePublicUrl_(base);
-  if (!safeBase) return '';
-
-  const protocolMatch = safeBase.match(/^(https?:)\/\//i);
-  const originMatch = safeBase.match(/^(https?:\/\/[^/?#]+)/i);
-  if (!protocolMatch || !originMatch) return '';
-
-  if (/^\/\//.test(value)) return safePublicUrl_(protocolMatch[1] + value);
-  if (/^\//.test(value)) return safePublicUrl_(originMatch[1] + value);
-
-  const basePath = safeBase.replace(/[?#].*$/, '').replace(/\/[^/]*$/, '/');
-  return safePublicUrl_(basePath + value);
-}
-
-function hostname_(url) {
-  const safeUrl = safePublicUrl_(url);
-  const match = safeUrl.match(/^https?:\/\/([^/?#]+)/i);
-  if (!match) return '';
-  return match[1].replace(/:\d+$/, '').replace(/^www\./i, '').toLowerCase();
-}
-
-function parseBody_(event) {
-  if (!event || !event.postData || !event.postData.contents) throw new Error('Missing JSON body');
-  try {
-    return JSON.parse(event.postData.contents);
-  } catch (error) {
-    throw new Error('Invalid JSON body');
-  }
-}
-
-function validateResponse_(body) {
-  const response = {
-    item_id: capString_(body.item_id || body.gift_id, 120),
-    guest_name: capString_(body.guest_name, 80),
-    response_type: cleanString_(body.response_type || 'reserve').toLowerCase(),
-    amount_sgd: body.amount_sgd === undefined || body.amount_sgd === null || body.amount_sgd === '' ? '' : Number(body.amount_sgd),
-    note: capString_(body.note || '', 500),
-    response_id: '',
-    edit_token: capString_(body.edit_token || '', 120),
-    cancels_response_id: capString_(body.cancels_response_id || '', 120),
-    source: 'web',
-  };
-
-  if (!response.item_id) throw new Error('item_id is required');
-  if (!response.guest_name) throw new Error('guest_name is required');
-  if (!ALLOWED_RESPONSE_TYPES.includes(response.response_type)) {
-    throw new Error('response_type must be one of: ' + ALLOWED_RESPONSE_TYPES.join(', '));
-  }
-  if (response.amount_sgd !== '' && (!isFinite(response.amount_sgd) || response.amount_sgd < 0)) {
-    throw new Error('amount_sgd must be a positive number');
-  }
-  if (response.response_type === 'undo') {
-    if (!response.cancels_response_id) throw new Error('cancels_response_id is required');
-    if (!response.edit_token) throw new Error('edit_token is required');
-  }
-  return response;
-}
-
-function validateUndo_(response) {
-  const responses = readSheetObjects_(REGISTRY_CONFIG.responsesSheet, RESPONSE_COLUMNS);
-  validateUndoFromResponses_(responses.map(normalizeResponse_), response);
-}
-
-function validateUndoFromResponses_(responses, response) {
-  const target = responses.find((row) => cleanString_(row.response_id) === response.cancels_response_id);
-  if (!target) throw new Error('Could not find the response to undo');
-  if (cleanString_(target.edit_token) !== response.edit_token) throw new Error('Undo token did not match');
-  if (cleanString_(target.response_type) === 'undo') throw new Error('Cannot undo an undo row');
-  const alreadyUndone = responses.some((row) => {
-    return cleanString_(row.response_type) === 'undo'
-      && cleanString_(row.cancels_response_id) === response.cancels_response_id;
-  });
-  if (alreadyUndone) throw new Error('This response has already been undone');
-}
-
-function activeResponses_(responses) {
-  const cancelled = new Set((responses || [])
-    .filter((response) => cleanString_(response.response_type) === 'undo' && cleanString_(response.cancels_response_id))
-    .map((response) => cleanString_(response.cancels_response_id)));
-
-  return (responses || []).filter((response) => {
-    if (isLegacySourceReservation_(response)) return false;
-    if (cleanString_(response.response_type) === 'undo') return false;
-    const responseId = cleanString_(response.response_id);
-    return !(responseId && cancelled.has(responseId));
-  });
-}
-
 function normalizeItem_(item) {
-  const referenceTitle = referenceTitleFromParts_(
-    item.display_name,
-    item.description || item.remarks,
-    item.reference_title || item.scraped_title
-  );
-  const name = shortDisplayName_(item.display_name, item.description || item.remarks, referenceTitle, item.category)
-    || cleanString_(item.display_name || item.scraped_title);
   return {
     id: cleanString_(item.id),
-    name,
-    reference_title: referenceTitle,
+    name: cleanString_(item.display_name || item.scraped_title),
+    reference_title: cleanString_(item.reference_title || item.scraped_title),
     description: cleanString_(item.description || item.remarks),
     price_sgd: cleanString_(item.display_price_sgd || item.scraped_price),
-    target_sgd: cleanString_(item.target_sgd),
-    link: sourceLinkForItem_(item),
+    link: safePublicUrl_(item.source_link),
     image: safePublicUrl_(item.display_image || item.scraped_image),
-    mode: cleanString_(item.mode || 'claim_or_contribute'),
     sort_order: toNumberOrBlank_(item.sort_order),
     active: parseBoolean_(item.active) !== false,
     status: cleanString_(item.status),
     room: cleanString_(item.category),
     vendor: cleanString_(item.vendor),
-    remarks: cleanString_(item.remarks),
-    reserved_by: cleanString_(item.reserved_by),
-    enrich_status: cleanString_(item.enrich_status),
-    source_row: cleanString_(item.source_row),
   };
-}
-
-function normalizeResponse_(response) {
-  return {
-    timestamp: response.timestamp instanceof Date ? response.timestamp.toISOString() : cleanString_(response.timestamp),
-    gift_id: cleanString_(response.item_id),
-    item_id: cleanString_(response.item_id),
-    guest_name: cleanString_(response.guest_name),
-    response_type: cleanString_(response.response_type),
-    amount_sgd: toNumberOrBlank_(response.amount_sgd),
-    note: cleanString_(response.note),
-    response_id: cleanString_(response.response_id),
-    edit_token: cleanString_(response.edit_token),
-    cancels_response_id: cleanString_(response.cancels_response_id),
-    source: cleanString_(response.source),
-  };
-}
-
-function readSheetObjects_(sheetName, expectedColumns, options) {
-  const sheet = getSheet_(sheetName);
-  const shouldRepair = !options || options.repairHeaders !== false;
-  if (shouldRepair) ensureHeader_(sheet, expectedColumns);
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-
-  const headers = values[0].map(cleanString_);
-  const indexes = expectedColumns.map((column) => headers.indexOf(column));
-  const missing = expectedColumns.filter((column, index) => indexes[index] < 0);
-  if (missing.length && !shouldRepair) {
-    throw new Error('Missing columns in ' + sheetName + ': ' + missing.join(', '));
-  }
-  return values.slice(1)
-    .filter((row) => row.some((cell) => cell !== ''))
-    .map((row) => expectedColumns.reduce((object, column, index) => {
-      object[column] = indexes[index] >= 0 ? row[indexes[index]] : '';
-      return object;
-    }, {}));
-}
-
-function writeObjectRow_(sheet, rowNumber, columns, object) {
-  const row = columns.map((column) => safeSheetCell_(object[column] === undefined || object[column] === null ? '' : object[column]));
-  sheet.getRange(rowNumber, 1, 1, columns.length).setValues([row]);
-}
-
-function getSheet_(sheetName) {
-  const sheet = getSpreadsheet_().getSheetByName(sheetName);
-  if (!sheet) throw new Error('Missing sheet: ' + sheetName);
-  return sheet;
-}
-
-function getSpreadsheet_() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  if (!spreadsheet) throw new Error('This script must be bound to the registry spreadsheet.');
-  return spreadsheet;
-}
-
-function ensureHeader_(sheet, expectedColumns) {
-  const lastColumn = Math.max(sheet.getLastColumn(), expectedColumns.length);
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(cleanString_);
-  const missing = expectedColumns.filter((column) => !headers.includes(column));
-  if (headers.every((header) => !header)) {
-    sheet.getRange(1, 1, 1, expectedColumns.length).setValues([expectedColumns]);
-  } else if (missing.length) {
-    sheet.getRange(1, sheet.getLastColumn() + 1, 1, missing.length).setValues([missing]);
-  }
-}
-
-function ensureExactHeader_(sheet, expectedColumns) {
-  const lastColumn = Math.max(sheet.getLastColumn(), expectedColumns.length);
-  sheet.getRange(1, 1, 1, expectedColumns.length).setValues([expectedColumns]);
-  if (lastColumn > expectedColumns.length) {
-    sheet.getRange(1, expectedColumns.length + 1, 1, lastColumn - expectedColumns.length).clearContent();
-  }
-}
-
-function uniqueId_(base, existingItems) {
-  const used = new Set((existingItems || []).map((item) => cleanString_(item.id)));
-  return uniqueIdFromSet_(base, used);
-}
-
-function uniqueIdFromSet_(base, used) {
-  let id = base;
-  let count = 2;
-  while (used.has(id)) {
-    id = base + '-' + count;
-    count += 1;
-  }
-  return id;
-}
-
-function ensureSourceRegistryIdColumn_(sheet) {
-  const lastColumn = Math.max(sheet.getLastColumn(), 1);
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(cleanString_);
-  if (headers.includes(SOURCE_COLUMNS.registryId)) return;
-  sheet.getRange(1, lastColumn + 1).setValue(SOURCE_COLUMNS.registryId);
-}
-
-function validateSourceHeaders_(sourceIndex) {
-  const required = ['category', 'item', 'description', 'price', 'who', 'link', 'remarks', 'status', 'registryId'];
-  const missing = required.filter((key) => sourceIndex[key] < 0).map((key) => SOURCE_COLUMNS[key]);
-  if (missing.length) {
-    throw new Error('Missing source columns: ' + missing.join(', '));
-  }
-}
-
-function sourceLinkForItem_(item) {
-  const direct = safePublicUrl_(item.source_link);
-  if (direct) return direct;
-
-  const rowNumber = Number(item.source_row);
-  if (rowNumber <= 1 || cleanString_(item.source_sheet) !== REGISTRY_CONFIG.sourceSheet) return '';
-
-  try {
-    const source = getSheet_(REGISTRY_CONFIG.sourceSheet);
-    const headers = source.getRange(1, 1, 1, source.getLastColumn()).getValues()[0].map(cleanString_);
-    const linkIndex = headers.indexOf(SOURCE_COLUMNS.link);
-    return sourceLinkFromCell_(source, rowNumber, linkIndex, '');
-  } catch (error) {
-    return '';
-  }
-}
-
-function sourceLinkFromCell_(sheet, rowNumber, columnIndex, displayedValue) {
-  const direct = safePublicUrl_(displayedValue);
-  if (direct || columnIndex < 0) return direct;
-
-  const range = sheet.getRange(rowNumber, columnIndex + 1);
-  const richText = range.getRichTextValue();
-  if (richText) {
-    const richLink = safePublicUrl_(richText.getLinkUrl && richText.getLinkUrl());
-    if (richLink) return richLink;
-
-    const runs = richText.getRuns ? richText.getRuns() : [];
-    for (let index = 0; index < runs.length; index += 1) {
-      const runLink = safePublicUrl_(runs[index].getLinkUrl && runs[index].getLinkUrl());
-      if (runLink) return runLink;
-    }
-  }
-
-  const formula = range.getFormula ? range.getFormula() : '';
-  return hyperlinkUrlFromFormula_(formula);
-}
-
-function hyperlinkUrlFromFormula_(formula) {
-  const text = cleanString_(formula);
-  const match = text.match(/^=\s*HYPERLINK\s*\(\s*"((?:[^"]|"")+)"/i);
-  return match ? safePublicUrl_(match[1].replace(/""/g, '"')) : '';
-}
-
-function headerIndex_(headers, columns) {
-  return columns.reduce((acc, column) => {
-    acc[column] = headers.indexOf(column);
-    return acc;
-  }, {});
-}
-
-function writeNamedCells_(sheet, rowNumber, indexMap, valuesByKey) {
-  Object.keys(valuesByKey).forEach((key) => {
-    const index = indexMap[key];
-    if (index < 0 || index === undefined) return;
-    sheet.getRange(rowNumber, index + 1).setValue(safeSheetCell_(valuesByKey[key]));
-  });
-}
-
-function shouldAutofillSourceCell_(value) {
-  const text = cleanString_(value).toLowerCase();
-  return !text || ['/', '?', '-', 'tbc', 'todo', 'to fill', 'needs review'].includes(text);
-}
-
-function displayNameFromSource_(itemName, description, referenceTitle, category) {
-  return shortDisplayName_(itemName, description, referenceTitle, category);
-}
-
-function shortDisplayName_(itemName, description, referenceTitle, category) {
-  const item = shouldAutofillSourceCell_(itemName) ? '' : cleanString_(itemName);
-  const detail = shouldAutofillSourceCell_(description) ? '' : cleanString_(description);
-  const reference = cleanString_(referenceTitle);
-  const text = [item, detail, reference, category].filter(Boolean).join(' ').toLowerCase();
-  const rule = shortNameRule_(text);
-
-  if (rule && (!item || shouldShortenDisplayName_(item, reference) || isBrandOrModelHeavy_(item))) return rule;
-  if (item && !shouldShortenDisplayName_(item, reference)) return item;
-  if (detail && !shouldShortenDisplayName_(detail, reference)) return detail;
-  if (rule) return rule;
-
-  return simplifyDisplayName_(item || detail || reference || 'Home Gift');
-}
-
-function shortNameRule_(text) {
-  const rules = [
-    ['Steam Oven Microwave', /(?:steam|convection|combi).*(?:oven|microwave)|(?:oven|microwave).*(?:steam|convection|combi)/],
-    ['Dyson Vacuum', /dyson|v12|vacuum|cordless cleaner/],
-    ['Wine Chiller', /wine|drinks? chiller|beverage chiller/],
-    ['Air Purifier', /air purifier|purifier|hepa/],
-    ['Rice Cooker', /rice cooker/],
-    ['Air Fryer', /air fryer/],
-    ['Coffee Machine', /coffee machine|espresso/],
-    ['Floor Lamp', /floor lamp|standing lamp/],
-  ];
-  const match = rules.find((rule) => rule[1].test(text));
-  return match ? match[0] : '';
-}
-
-function shouldShortenDisplayName_(displayName, referenceTitle) {
-  const name = cleanString_(displayName);
-  if (!name) return true;
-  if (name.length > 38) return true;
-  if (isBrandOrModelHeavy_(name)) return true;
-  const reference = cleanString_(referenceTitle).toLowerCase();
-  return Boolean(reference && reference !== name.toLowerCase() && reference.includes(name.toLowerCase()) && name.split(/\s+/).length > 3);
-}
-
-function isBrandOrModelHeavy_(value) {
-  const text = cleanString_(value);
-  if (!text) return false;
-  if (/\b(panasonic|dyson|samsung|lg|bosch|philips)\b/i.test(text) && text.split(/\s+/).length <= 4) return true;
-  return /\b[A-Z]{1,5}[-]?[A-Z0-9]{2,}\b/.test(text) && /\d/.test(text);
-}
-
-function simplifyDisplayName_(value) {
-  const text = cleanString_(value)
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/\b(?:official|store|singapore|sg|new|original|authentic)\b/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const words = text.split(/\s+/).filter(Boolean);
-  return words.slice(0, 4).join(' ') || 'Home Gift';
-}
-
-function referenceTitleFromParts_(itemName, description, scrapedTitle) {
-  const scraped = cleanProductTitle_(scrapedTitle);
-  const item = shouldAutofillSourceCell_(itemName) ? '' : cleanString_(itemName);
-  const detail = shouldAutofillSourceCell_(description) ? '' : cleanString_(description);
-  if (scraped) return scraped;
-  if (item && detail) {
-    const itemLower = item.toLowerCase();
-    const detailLower = detail.toLowerCase();
-    if (itemLower.includes(detailLower)) return item;
-    if (detailLower.includes(itemLower)) return detail;
-    if (shortNameRule_(detailLower).toLowerCase() === itemLower) return detail;
-    return item + ' - ' + detail;
-  }
-  return scraped || item || detail;
-}
-
-function guessCategory_(text) {
-  const value = cleanString_(text).toLowerCase();
-  const rules = [
-    ['Kitchen', /rice|cooker|oven|microwave|air fryer|kettle|toaster|pan|pot|wok|knife|blender|mixer|fridge|chiller|pantry/],
-    ['Dining', /plate|bowl|glass|cup|mug|cutlery|fork|spoon|chopstick|tray|platter|serve|wine|drink|carafe/],
-    ['Cleaning', /vacuum|mop|clean|laundry|detergent|dryer|washer|iron|steam|dyson/],
-    ['Bedroom', /bed|bedsheet|linen|pillow|bolster|duvet|mattress|wardrobe|hanger|air purifier/],
-    ['Bathroom', /bath|toilet|towel|shower|soap|toothbrush|mat/],
-    ['Living', /lamp|light|sofa|cushion|rug|carpet|table|chair|shelf|plant|vase|frame/],
-  ];
-  const match = rules.find((rule) => rule[1].test(value));
-  return match ? match[0] : 'To sort';
-}
-
-function assertEditorOnly_() {
-  const activeUser = cleanString_(Session.getActiveUser().getEmail());
-  const effectiveUser = cleanString_(Session.getEffectiveUser().getEmail());
-  if (!activeUser || activeUser !== effectiveUser) {
-    throw new Error('Run installRegistryAutomation from the Apps Script editor as the spreadsheet owner.');
-  }
-}
-
-function slugify_(value) {
-  return cleanString_(value)
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64);
-}
-
-function cell_(row, index) {
-  return index >= 0 ? cleanString_(row[index]) : '';
-}
-
-function cleanString_(value) {
-  return String(value === undefined || value === null ? '' : value).trim();
-}
-
-function decodeHtml_(value) {
-  return cleanString_(value)
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function toNumberOrBlank_(value) {
-  if (value === '' || value === undefined || value === null) return '';
-  const number = Number(value);
-  return isFinite(number) ? number : '';
-}
-
-function parseBoolean_(value) {
-  if (typeof value === 'boolean') return value;
-  const normalized = cleanString_(value).toLowerCase();
-  if (['false', 'no', 'n', '0', 'inactive', 'hidden'].includes(normalized)) return false;
-  if (['true', 'yes', 'y', '1', 'active', ''].includes(normalized)) return true;
-  return Boolean(value);
-}
-
-function isPublicItem_(item) {
-  const status = cleanString_(item.status).toLowerCase();
-  if (item.active === false || parseBoolean_(item.active) === false) return false;
-  return !['hidden', 'inactive', 'archive', 'archived', 'draft'].includes(status);
-}
-
-function isLegacySourceReservation_(response) {
-  return ['source-who', 'sheet-import'].includes(cleanString_(response.source).toLowerCase());
-}
-
-function capString_(value, limit) {
-  return cleanString_(value).slice(0, limit);
-}
-
-function safePublicUrl_(value) {
-  const text = cleanString_(value);
-  if (!text) return '';
-  if (!/^https?:\/\//i.test(text)) return '';
-  if (/[\s<>"'`]/.test(text)) return '';
-
-  const match = text.match(/^(https?):\/\/([^/?#]+)([^\s]*)?$/i);
-  if (!match) return '';
-
-  const authority = match[2];
-  if (!authority || authority.indexOf('@') >= 0 || authority.indexOf('\\') >= 0) return '';
-  if (!/[A-Za-z0-9.-]/.test(authority)) return '';
-
-  return match[1].toLowerCase() + '://' + authority + (match[3] || '');
-}
-
-function safeSheetCell_(value) {
-  if (typeof value !== 'string') return value;
-  return /^[=+\-@]/.test(value) ? "'" + value : value;
-}
-
-function json_(payload) {
-  return ContentService
-    .createTextOutput(JSON.stringify(payload))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /* ------------------------------------------------------------------ *
@@ -1706,21 +379,7 @@ function getPublicRegistryPayload_() {
     .reduce((sum, pledge) => sum + countedAmount_(pledge), 0);
   const pledged = pledges.reduce((sum, pledge) => sum + countedAmount_(pledge), 0);
 
-  const items = readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS, { repairHeaders: false })
-    .map(normalizeItem_)
-    .filter(isPublicItem_)
-    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
-    .map((item) => ({
-      id: item.id,
-      name: item.name,
-      reference_title: item.reference_title,
-      description: item.description,
-      price_sgd: item.price_sgd,
-      image: item.image,
-      link: item.link,
-      room: item.room,
-      vendor: item.vendor,
-    }));
+  const items = readItemsSafely_();
 
   return {
     items,
@@ -1743,6 +402,33 @@ function getPublicRegistryPayload_() {
       names: pledges.map((pledge) => firstName_(pledge.guest_name)).filter(Boolean),
     },
   };
+}
+
+/**
+ * The inspiration grid is a nice-to-have. If `Registry Items` is missing or
+ * mis-shaped, the pledge form must still work, so failures here are swallowed.
+ */
+function readItemsSafely_() {
+  try {
+    return readSheetObjects_(REGISTRY_CONFIG.itemsSheet, ITEM_COLUMNS, { repairHeaders: false })
+      .map(normalizeItem_)
+      .filter(isPublicItem_)
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        reference_title: item.reference_title,
+        description: item.description,
+        price_sgd: item.price_sgd,
+        image: item.image,
+        link: item.link,
+        room: item.room,
+        vendor: item.vendor,
+      }));
+  } catch (error) {
+    console.error('Could not read ' + REGISTRY_CONFIG.itemsSheet + ': ' + (error && error.message));
+    return [];
+  }
 }
 
 function suggestedAmounts_(value) {
@@ -2332,4 +1018,128 @@ function throttleByEmail_(action, email, seconds) {
     throw new Error('That just went through. Give it a moment before trying again.');
   }
   cache.put(key, '1', seconds);
+}
+function parseBody_(event) {
+  if (!event || !event.postData || !event.postData.contents) throw new Error('Missing JSON body');
+  try {
+    return JSON.parse(event.postData.contents);
+  } catch (error) {
+    throw new Error('Invalid JSON body');
+  }
+}
+
+function readSheetObjects_(sheetName, expectedColumns, options) {
+  const sheet = getSheet_(sheetName);
+  const shouldRepair = !options || options.repairHeaders !== false;
+  if (shouldRepair) ensureHeader_(sheet, expectedColumns);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(cleanString_);
+  const indexes = expectedColumns.map((column) => headers.indexOf(column));
+  const missing = expectedColumns.filter((column, index) => indexes[index] < 0);
+  if (missing.length && !shouldRepair) {
+    throw new Error('Missing columns in ' + sheetName + ': ' + missing.join(', '));
+  }
+  return values.slice(1)
+    .filter((row) => row.some((cell) => cell !== ''))
+    .map((row) => expectedColumns.reduce((object, column, index) => {
+      object[column] = indexes[index] >= 0 ? row[indexes[index]] : '';
+      return object;
+    }, {}));
+}
+
+function writeObjectRow_(sheet, rowNumber, columns, object) {
+  const row = columns.map((column) => safeSheetCell_(object[column] === undefined || object[column] === null ? '' : object[column]));
+  sheet.getRange(rowNumber, 1, 1, columns.length).setValues([row]);
+}
+
+function ensureHeader_(sheet, expectedColumns) {
+  const lastColumn = Math.max(sheet.getLastColumn(), expectedColumns.length);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(cleanString_);
+  const missing = expectedColumns.filter((column) => !headers.includes(column));
+  if (headers.every((header) => !header)) {
+    sheet.getRange(1, 1, 1, expectedColumns.length).setValues([expectedColumns]);
+  } else if (missing.length) {
+    sheet.getRange(1, sheet.getLastColumn() + 1, 1, missing.length).setValues([missing]);
+  }
+}
+
+function getSheet_(sheetName) {
+  const sheet = getSpreadsheet_().getSheetByName(sheetName);
+  if (!sheet) throw new Error('Missing sheet: ' + sheetName);
+  return sheet;
+}
+
+function getSpreadsheet_() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('This script must be bound to the registry spreadsheet.');
+  return spreadsheet;
+}
+
+function headerIndex_(headers, columns) {
+  return columns.reduce((acc, column) => {
+    acc[column] = headers.indexOf(column);
+    return acc;
+  }, {});
+}
+
+function safeSheetCell_(value) {
+  if (typeof value !== 'string') return value;
+  return /^[=+\-@]/.test(value) ? "'" + value : value;
+}
+
+function safePublicUrl_(value) {
+  const text = cleanString_(value);
+  if (!text) return '';
+  if (!/^https?:\/\//i.test(text)) return '';
+  if (/[\s<>"'`]/.test(text)) return '';
+
+  const match = text.match(/^(https?):\/\/([^/?#]+)([^\s]*)?$/i);
+  if (!match) return '';
+
+  const authority = match[2];
+  if (!authority || authority.indexOf('@') >= 0 || authority.indexOf('\\') >= 0) return '';
+  if (!/[A-Za-z0-9.-]/.test(authority)) return '';
+
+  return match[1].toLowerCase() + '://' + authority + (match[3] || '');
+}
+
+function cleanString_(value) {
+  return String(value === undefined || value === null ? '' : value).trim();
+}
+
+function capString_(value, limit) {
+  return cleanString_(value).slice(0, limit);
+}
+
+function toNumberOrBlank_(value) {
+  if (value === '' || value === undefined || value === null) return '';
+  const number = Number(value);
+  return isFinite(number) ? number : '';
+}
+
+function parseBoolean_(value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = cleanString_(value).toLowerCase();
+  if (['false', 'no', 'n', '0', 'inactive', 'hidden'].includes(normalized)) return false;
+  if (['true', 'yes', 'y', '1', 'active', ''].includes(normalized)) return true;
+  return Boolean(value);
+}
+
+function numericAmount_(value) {
+  const match = cleanString_(value).replace(/,/g, '').match(/\d+(?:\.\d+)?/);
+  return match ? match[0] : '';
+}
+
+function json_(payload) {
+  return ContentService
+    .createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function isPublicItem_(item) {
+  const status = cleanString_(item.status).toLowerCase();
+  if (item.active === false || parseBoolean_(item.active) === false) return false;
+  return !['hidden', 'inactive', 'archive', 'archived', 'draft'].includes(status);
 }

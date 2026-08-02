@@ -498,12 +498,10 @@
 
   <script>
     /* ------------------------------------------------------------------ *
-     * Backend
-     *
-     * Paste the Apps Script web app URL here after deploying it
-     * (Deploy -> New deployment -> Web app -> Anyone). It ends in /exec.
+     * Backend — Apps Script web app bound to the "Bishan Renovation" sheet.
+     * Redeploying a new version keeps this URL, so it rarely changes.
      * ------------------------------------------------------------------ */
-    var API_URL = "PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE";
+    var API_URL = "https://script.google.com/macros/s/AKfycbwS7AvMRx9jLvj6rkYbl-Rn6I_MU-nFgIdzvdD5PAHx1KMJOf77MSduqvwHfetwnRi4/exec";
 
     var MAGIC_TOKEN = (new URLSearchParams(window.location.search).get("t") || "")
       .replace(/[^A-Za-z0-9-]/g, "")
