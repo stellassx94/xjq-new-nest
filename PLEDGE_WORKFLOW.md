@@ -113,4 +113,4 @@ Manual refresh: `New Nest Pledges` → `Refresh pledge dashboard`.
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbwS7AvMRx9jLvj6rkYbl-Rn6I_MU-nFgIdzvdD5PAHx1KMJOf77MSduqvwHfetwnRi4/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbzATtggeQmfYTs-Hv49zbTka86GgdSRSIoCkWb1CEJ3LawTzVG6EgWrCKlxDz0MUoQW/exec` |
