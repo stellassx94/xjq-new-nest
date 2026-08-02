@@ -608,7 +608,6 @@ function submitPledge_(body) {
     }
 
     clearPublicPayloadCache_();
-    refreshPledgeDashboard_();
 
     return {
       ok: true,
@@ -689,7 +688,6 @@ function cancelPledge_(magicToken, pledgeId) {
     const headers = pledgeHeaderIndex_(found.sheet);
     found.sheet.getRange(found.rowNumber, headers.status + 1).setValue('Cancelled');
     clearPublicPayloadCache_();
-    refreshPledgeDashboard_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
   } finally {
@@ -741,7 +739,6 @@ function amendPledge_(magicToken, pledgeId, amount) {
     // Changing the amount invalidates any "I've sent it" claim against the old one.
     found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue('');
     clearPublicPayloadCache_();
-    refreshPledgeDashboard_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
   } finally {
@@ -765,7 +762,6 @@ function markPledgeSent_(magicToken, pledgeId) {
     const headers = pledgeHeaderIndex_(found.sheet);
     found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue(new Date().toISOString());
     clearPublicPayloadCache_();
-    refreshPledgeDashboard_();
 
     return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
   } finally {
@@ -797,80 +793,80 @@ function paynowPayload_(config) {
 
 /* ---------- owner views ---------- */
 
+/**
+ * The dashboard is a formula sheet, not a generated one.
+ *
+ * It used to be rebuilt by script after every write, which meant it went stale
+ * exactly when the owner did their main job: marking a row Received by hand
+ * fires no script at all. Live formulas track every edit instantly, survive a
+ * script failure, and show their own working. This only installs them.
+ */
 function refreshPledgeDashboard_() {
   setupPledgeSheets_();
   const sheet = getSheet_(REGISTRY_CONFIG.pledgeDashboardSheet);
-  const config = pledgeConfig_();
-  const pledges = readPledges_();
-  const live = pledges.filter((pledge) => pledge.status !== 'Cancelled');
-  const receivedRows = live.filter((pledge) => pledge.status === 'Received');
+  const p = "'" + REGISTRY_CONFIG.pledgesSheet + "'";
 
-  const pledgedTotal = live.reduce((sum, pledge) => sum + countedAmount_(pledge), 0);
-  const receivedTotal = receivedRows.reduce((sum, pledge) => sum + countedAmount_(pledge), 0);
-  const goal = Number(numericAmount_(config.goal_sgd)) || 0;
-  const guests = new Set(live.map((pledge) => pledge.guest_email).filter(Boolean));
-  const unthanked = receivedRows.filter((pledge) => !pledge.thanked_on).length;
-  const awaitingCheck = live.filter((pledge) => pledge.status === 'Pledged' && pledge.claims_paid_on).length;
+  // Mirrors countedAmount_: use received_amount_sgd when the owner filled it
+  // in, otherwise the amount pledged.
+  const counted = 'IF(' + p + '!$J$2:$J="",' + p + '!$E$2:$E,' + p + '!$J$2:$J)';
+  const notCancelled = '(' + p + '!$H$2:$H<>"")*(' + p + '!$H$2:$H<>"Cancelled")';
 
   sheet.clear();
+
   sheet.getRange(1, 1, 1, 7).setValues([[
     'Total pledged', 'Received', 'Outstanding', 'Goal', '% of goal', 'Pledges', 'Friends',
   ]]).setFontWeight('bold');
-  sheet.getRange(2, 1, 1, 7).setValues([[
-    pledgedTotal,
-    receivedTotal,
-    pledgedTotal - receivedTotal,
-    goal || '',
-    goal ? receivedTotal / goal : '',
-    live.length,
-    guests.size,
+
+  sheet.getRange(2, 1, 1, 7).setFormulas([[
+    '=ARRAYFORMULA(SUMPRODUCT(' + notCancelled + '*' + counted + '))',
+    '=ARRAYFORMULA(SUMPRODUCT((' + p + '!$H$2:$H="Received")*' + counted + '))',
+    '=A2-B2',
+    '=IFERROR(VALUE(VLOOKUP("goal_sgd",\'' + REGISTRY_CONFIG.pledgeConfigSheet + '\'!$A:$B,2,FALSE)),0)',
+    '=IF(D2=0,"",B2/D2)',
+    '=COUNTIFS(' + p + '!$H$2:$H,"<>",' + p + '!$H$2:$H,"<>Cancelled")',
+    '=IFERROR(COUNTA(UNIQUE(FILTER(' + p + '!$D$2:$D,' + p + '!$D$2:$D<>"",' + p + '!$H$2:$H<>"Cancelled"))),0)',
   ]]);
   sheet.getRange(2, 1, 1, 4).setNumberFormat('$#,##0.00');
   sheet.getRange(2, 5).setNumberFormat('0%');
-  const notes = [];
-  if (awaitingCheck) notes.push(awaitingCheck + ' say they have sent it \u2014 check your bank (blue rows).');
-  if (unthanked) notes.push(unthanked + ' received pledge(s) still waiting on a thank-you.');
-  sheet.getRange(3, 1).setValue(notes.length ? notes.join('  \u00b7  ') : 'Nothing waiting on you.');
+
+  sheet.getRange(3, 1).setFormula(
+    '=LET('
+    + 'saysPaid,COUNTIFS(' + p + '!$H$2:$H,"Pledged",' + p + '!$P$2:$P,"<>"),'
+    + 'unthanked,COUNTIFS(' + p + '!$H$2:$H,"Received",' + p + '!$K$2:$K,""),'
+    + 'msg,TRIM(IF(saysPaid>0,saysPaid&" say they have sent it - check your bank (blue rows).  ","")'
+    + '&IF(unthanked>0,unthanked&" received, not yet thanked.","")),'
+    + 'IF(COUNTA(' + p + '!$B$2:$B)=0,"No pledges yet.",IF(msg="","Nothing waiting on you.",msg)))');
 
   sheet.getRange(4, 1, 1, PLEDGE_DASHBOARD_COLUMNS.length)
     .setValues([PLEDGE_DASHBOARD_COLUMNS])
     .setFontWeight('bold');
 
-  const now = Date.now();
-  const rows = pledges
-    .slice()
-    .sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0))
-    .map((pledge) => {
-      const pledgedAt = Date.parse(pledge.timestamp);
-      const days = pledge.status === 'Pledged' && isFinite(pledgedAt)
-        ? Math.floor((now - pledgedAt) / 86400000)
-        : '';
-      return [
-        pledge.guest_name,
-        pledge.guest_email,
-        pledge.amount_sgd || '',
-        pledge.status,
-        pledge.reference_code,
-        pledge.claims_paid_on ? formatDate_(pledge.claims_paid_on) : '',
-        days,
-        formatDate_(pledge.received_on),
-        pledge.received_amount_sgd,
-        pledge.thanked_on ? 'Yes' : '',
-        pledge.message,
-        formatDate_(pledge.timestamp),
-      ].map(safeSheetCell_);
-    });
+  // One formula builds the whole table, newest first, and re-sorts itself the
+  // moment a status changes.
+  sheet.getRange(5, 1).setFormula(
+    '=IFERROR(SORT(FILTER({'
+    + p + '!$C$2:$C,'
+    + p + '!$D$2:$D,'
+    + p + '!$E$2:$E,'
+    + p + '!$H$2:$H,'
+    + p + '!$G$2:$G,'
+    + 'IF(' + p + '!$P$2:$P="","",LEFT(' + p + '!$P$2:$P,10)),'
+    + 'IF(' + p + '!$H$2:$H="Pledged",INT(TODAY())-INT(' + p + '!$A$2:$A),""),'
+    + 'IF(' + p + '!$I$2:$I="","",LEFT(' + p + '!$I$2:$I&"",10)),'
+    + p + '!$J$2:$J,'
+    + 'IF(' + p + '!$K$2:$K="","","Yes"),'
+    + p + '!$F$2:$F,'
+    + 'IF(' + p + '!$A$2:$A="","",TEXT(' + p + '!$A$2:$A,"yyyy-mm-dd"))'
+    + '},' + p + '!$B$2:$B<>""),12,FALSE),"")');
 
-  if (rows.length) {
-    sheet.getRange(5, 1, rows.length, PLEDGE_DASHBOARD_COLUMNS.length).setValues(rows);
-    sheet.getRange(5, 3, rows.length, 1).setNumberFormat('$#,##0.00');
-    sheet.getRange(5, 9, rows.length, 1).setNumberFormat('$#,##0.00');
-  }
+  const tailRows = Math.max(sheet.getMaxRows() - 4, 1);
+  sheet.getRange(5, 3, tailRows, 1).setNumberFormat('$#,##0.00');
+  sheet.getRange(5, 9, tailRows, 1).setNumberFormat('$#,##0.00');
 
   sheet.setFrozenRows(4);
-  applyPledgeDashboardFormatting_(sheet, rows.length);
+  applyPledgeDashboardFormatting_(sheet, tailRows);
 
-  return { ok: true, pledges: pledges.length, pledged_sgd: pledgedTotal, received_sgd: receivedTotal };
+  return { ok: true, formulas: true };
 }
 
 function applyPledgeDashboardFormatting_(sheet, rowCount) {
@@ -902,13 +898,6 @@ function applyPledgeDashboardFormatting_(sheet, rowCount) {
     .build();
 
   sheet.setConditionalFormatRules([received, claimsPaid, chasing, cancelled]);
-}
-
-function formatDate_(value) {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (isNaN(date.getTime())) return cleanString_(value);
-  return Utilities.formatDate(date, Session.getScriptTimeZone() || 'Asia/Singapore', 'yyyy-MM-dd');
 }
 
 /* ---------- owner emails ---------- */
@@ -957,7 +946,6 @@ function sendThankYouEmails_() {
 
   if (sent) {
     clearPublicPayloadCache_();
-    refreshPledgeDashboard_();
   }
   return { ok: true, sent, failed, remaining: Math.max(pending.length - batch.length, 0) };
 }

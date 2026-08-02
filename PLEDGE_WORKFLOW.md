@@ -17,7 +17,7 @@ Spreadsheet: `Bishan Renovation`
 |---|---|---|
 | `Pledges` | Append-only log — one row per pledge. **This is the source of truth.** | Only the `status`, `received_on`, `received_amount_sgd`, `notes` columns |
 | `claims_paid_on` (in `Pledges`) | A friend saying "I've sent it". A claim, never a confirmation — it never sets `status` | Read only |
-| `Pledge Dashboard` | Regenerated owner view: totals at the top, one row per pledge below | Read only — it gets rebuilt |
+| `Pledge Dashboard` | **Formulas.** Totals at the top, one row per pledge below, all live | Read only — but safe to add your own columns to the right |
 | `Pledge Config` | Key/value settings for the public page | Yes, this is your control panel |
 | `Registry Items` | Feeds the browse-only inspiration grid | Via `Paste Links Here` as before |
 | `Paste Links Here` | Paste product URLs, the script scrapes them | Yes |
@@ -92,11 +92,12 @@ Live in about a minute. No Apps Script deploy needed for page-only changes.
 
 ## Automation
 
-The pledge script has no triggers. The dashboard rebuilds itself after every pledge, cancellation, and thank-you run.
+The pledge script has no triggers, and the dashboard needs none: it is built from formulas, so it updates the instant anything changes — including when **you** edit a status by hand, which no script would ever see.
+
+If the dashboard ever looks broken (someone deletes a formula cell), `New Nest Pledges` → `Reinstall dashboard formulas` puts it back.
 
 Item scraping still belongs to the **older** registry script bound to the same spreadsheet — its edit trigger and 15-minute trigger keep `Registry Items` fresh. The pledge script only reads that tab, and shrugs off failures there so the pledge form keeps working regardless.
 
-Manual refresh: `New Nest Pledges` → `Refresh pledge dashboard`.
 
 ## Notes
 
@@ -115,4 +116,4 @@ Manual refresh: `New Nest Pledges` → `Refresh pledge dashboard`.
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbwH0A7K05xYroWBBgFMXTqrh4BQx5BA5Pb3BftcxlpEWvxdbQOamYTwVMSxtaaB-bSU/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbymXJtIBFhLRBfiLC6eM-hJlnKU-muSIxBfzHIfbBlo5TP_qFJrdKdZeT8HDj-5Ghpl/exec` |
