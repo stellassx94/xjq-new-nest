@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" role="img" aria-label="Serving platter">
+  <rect width="420" height="320" fill="none"/>
+  <ellipse cx="210" cy="176" rx="142" ry="78" fill="#fffaf2" stroke="#d8c7b6" stroke-width="6"/>
+  <ellipse cx="210" cy="176" rx="98" ry="44" fill="#e8efe7"/>
+  <circle cx="156" cy="146" r="24" fill="#b45f43"/>
+  <circle cx="210" cy="144" r="20" fill="#ba8b3f"/>
+  <circle cx="262" cy="150" r="24" fill="#365548"/>
+  <path d="M136 214c45 26 101 33 168 0" fill="none" stroke="#5a4637" stroke-width="7" stroke-linecap="round"/>
+</svg>

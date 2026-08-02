@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" role="img" aria-label="Coffee corner">
+  <rect width="420" height="320" fill="none"/>
+  <path d="M116 236h166c34 0 60-26 60-60s-26-60-60-60h-26v35h24c14 0 25 11 25 25s-11 25-25 25H116v35Z" fill="#fffaf2" stroke="#5a4637" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M122 116h128v70c0 36-29 65-64 65s-64-29-64-65v-70Z" fill="#dbe8ea" stroke="#5a4637" stroke-width="7"/>
+  <path d="M146 116V86h80v30" fill="none" stroke="#5a4637" stroke-width="7" stroke-linecap="round"/>
+  <path d="M112 94h148" stroke="#b45f43" stroke-width="10" stroke-linecap="round"/>
+  <path d="M168 70c-10-18 10-28 0-44M212 70c-10-18 10-28 0-44" stroke="#ba8b3f" stroke-width="7" stroke-linecap="round"/>
+</svg>

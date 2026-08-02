@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" role="img" aria-label="Warm floor lamp">
+  <rect width="420" height="320" fill="none"/>
+  <path d="M154 52h112l34 96H120l34-96Z" fill="#dbe8ea" stroke="#7d918f" stroke-width="6"/>
+  <path d="M210 148v112" stroke="#5a4637" stroke-width="10" stroke-linecap="round"/>
+  <path d="M152 270h116" stroke="#5a4637" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="210" cy="176" r="20" fill="#ba8b3f" opacity=".55"/>
+  <path d="M134 148h152" stroke="#ba8b3f" stroke-width="5" stroke-linecap="round"/>
+</svg>

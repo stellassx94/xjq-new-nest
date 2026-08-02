@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" role="img" aria-label="Plant pot">
+  <rect width="420" height="320" fill="none"/>
+  <path d="M142 160h136l-20 98H162l-20-98Z" fill="#b45f43" stroke="#7d3f2e" stroke-width="7"/>
+  <path d="M128 148h164" stroke="#7d3f2e" stroke-width="14" stroke-linecap="round"/>
+  <path d="M206 148c-52-14-84-44-96-90 50-1 84 23 102 72" fill="#dfe9d5" stroke="#365548" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M216 148c8-55 40-91 96-108 5 62-24 100-88 114" fill="#e8efe7" stroke="#365548" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M212 148c-6-52 13-92 58-120 21 50 9 91-38 123" fill="#a9bd95" stroke="#365548" stroke-width="7" stroke-linejoin="round"/>
+</svg>

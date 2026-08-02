@@ -1,0 +1,8 @@
+.DS_Store
+
+# Superseded item-claiming registry — kept locally, not published
+apps-script/
+registry.html
+WORKFLOW.md
+reference/
+tools/

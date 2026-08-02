@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" role="img" aria-label="Home tool kit">
+  <rect width="420" height="320" fill="none"/>
+  <rect x="98" y="118" width="224" height="126" rx="20" fill="#365548" stroke="#223931" stroke-width="7"/>
+  <path d="M158 118V92h104v26" fill="none" stroke="#223931" stroke-width="12" stroke-linecap="round"/>
+  <path d="M98 162h224" stroke="#223931" stroke-width="7"/>
+  <rect x="184" y="146" width="52" height="34" rx="8" fill="#ba8b3f"/>
+  <path d="M274 76 162 240" stroke="#fffaf2" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="282" cy="68" r="18" fill="#fffaf2"/>
+</svg>

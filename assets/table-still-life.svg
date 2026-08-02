@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 760" role="img" aria-labelledby="title desc">
+  <title id="title">Top-down housewarming table still life</title>
+  <desc id="desc">A linen tabletop with ceramic plates, brass cutlery, botanical sprigs, fabric swatches, and small home objects.</desc>
+  <defs>
+    <linearGradient id="linen" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#f7f1e7" offset="0"/>
+      <stop stop-color="#ece2d4" offset="1"/>
+    </linearGradient>
+    <pattern id="threads" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M0 9H28M8 0V28" stroke="#d8c8b6" stroke-width="1" opacity=".28"/>
+    </pattern>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#2b2119" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="760" fill="url(#linen)"/>
+  <rect width="1600" height="760" fill="url(#threads)" opacity=".65"/>
+
+  <g opacity=".72">
+    <path d="M74 102c168-42 315-38 452 10 141 50 278 53 411 10 147-48 279-42 397 17 62 31 126 45 192 43" fill="none" stroke="#ffffff" stroke-width="32" stroke-linecap="round"/>
+    <path d="M74 102c168-42 315-38 452 10 141 50 278 53 411 10 147-48 279-42 397 17 62 31 126 45 192 43" fill="none" stroke="#c9b8a5" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <circle cx="1266" cy="218" r="132" fill="#fffaf2"/>
+    <circle cx="1266" cy="218" r="98" fill="#ede6db" stroke="#d4c5b2" stroke-width="2"/>
+    <circle cx="1266" cy="218" r="62" fill="#f8f3ea" stroke="#ded0c0" stroke-width="1.5"/>
+  </g>
+
+  <g transform="translate(1320 88) rotate(7)" filter="url(#softShadow)">
+    <rect width="38" height="278" rx="19" fill="#b98a42"/>
+    <rect x="54" width="22" height="278" rx="11" fill="#c7a05d"/>
+    <path d="M65 0c26 34 26 72 0 104" fill="none" stroke="#b98a42" stroke-width="12" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(1030 418) rotate(-8)" filter="url(#softShadow)">
+    <rect width="270" height="172" rx="18" fill="#f5ece0"/>
+    <path d="M32 44h206M32 88h192M32 132h168" stroke="#b8a48e" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="224" cy="44" r="13" fill="#b35e43"/>
+    <circle cx="206" cy="88" r="13" fill="#365548"/>
+    <circle cx="180" cy="132" r="13" fill="#6b3f49"/>
+  </g>
+
+  <g transform="translate(116 466) rotate(4)" filter="url(#softShadow)">
+    <rect width="260" height="164" rx="18" fill="#fef7eb"/>
+    <rect x="32" y="34" width="70" height="96" rx="10" fill="#d7e5e7"/>
+    <rect x="118" y="34" width="108" height="34" rx="8" fill="#b35e43"/>
+    <rect x="118" y="84" width="84" height="46" rx="8" fill="#365548"/>
+  </g>
+
+  <g transform="translate(222 138)" filter="url(#softShadow)">
+    <path d="M0 172c64-48 119-92 165-132 55 23 109 35 161 36 20 63 35 116 45 160-119 26-242 5-371-64Z" fill="#ffffff"/>
+    <path d="M39 160c45-31 90-68 135-111 44 16 88 25 132 27 15 44 27 87 36 129-97 24-198 9-303-45Z" fill="#e2ece4"/>
+    <path d="M100 117c63 32 126 40 188 24" fill="none" stroke="#365548" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+  </g>
+
+  <g transform="translate(692 70) rotate(-11)" filter="url(#softShadow)">
+    <rect width="142" height="214" rx="70" fill="#dbe7e9"/>
+    <rect x="58" y="190" width="26" height="128" rx="13" fill="#b98a42"/>
+    <rect x="22" y="306" width="98" height="20" rx="10" fill="#5b4131"/>
+  </g>
+
+  <g fill="none" stroke="#365548" stroke-linecap="round" stroke-linejoin="round" opacity=".74">
+    <path d="M134 210c62 6 112 34 150 86"/>
+    <path d="M166 224c-12 28-9 50 8 66 24-10 37-29 39-57"/>
+    <path d="M220 258c-17 25-20 48-8 68 27-3 45-18 55-46"/>
+    <path d="M1408 560c-68-5-122 17-162 66"/>
+    <path d="M1378 570c11 27 7 48-11 63-24-11-36-30-37-58"/>
+    <path d="M1320 600c16 25 18 47 6 66-27-4-44-20-53-48"/>
+  </g>
+</svg>

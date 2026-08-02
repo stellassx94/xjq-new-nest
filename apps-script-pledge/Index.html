@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Things for the New Nest</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;650;750;850&display=swap");
+
+    :root {
+      --paper: #fbf8f2;
+      --surface: #fffdf8;
+      --ink: #1f2522;
+      --muted: #746d63;
+      --line: #ddd4c8;
+      --green: #25463b;
+      --clay: #9f5a43;
+      --soft: #ede7de;
+      --shadow: 0 18px 46px rgba(31, 37, 34, 0.09);
+      --serif: "Cormorant Garamond", Georgia, serif;
+      --body: "Inter", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      font-family: var(--body);
+      background: var(--paper);
+      line-height: 1.45;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+    h1, h2, h3, p { margin: 0; }
+    img { display: block; max-width: 100%; }
+
+    .shell { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* ---------- hero ---------- */
+
+    .hero {
+      padding: clamp(38px, 7vw, 76px) 0 clamp(26px, 5vw, 52px);
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, rgba(37, 70, 59, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(37, 70, 59, 0.06) 1px, transparent 1px),
+        var(--paper);
+      background-size: 44px 44px, 44px 44px, auto;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+      gap: clamp(26px, 6vw, 72px);
+      align-items: end;
+    }
+
+    .eyebrow {
+      color: var(--clay);
+      font-size: 0.76rem;
+      font-weight: 850;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 720px;
+      margin-top: 14px;
+      font-family: var(--serif);
+      font-size: clamp(3.2rem, 9vw, 7rem);
+      font-weight: 700;
+      line-height: 0.86;
+    }
+
+    .hero-copy {
+      max-width: 620px;
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.18rem);
+    }
+
+    /* ---------- progress ---------- */
+
+    .progress-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 253, 248, 0.85);
+      padding: clamp(20px, 3vw, 30px);
+      box-shadow: var(--shadow);
+    }
+
+    .progress-amount {
+      color: var(--green);
+      font-family: var(--serif);
+      font-size: clamp(2.4rem, 5vw, 3.4rem);
+      line-height: 1;
+    }
+
+    .progress-amount small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: var(--body);
+      font-size: 0.92rem;
+    }
+
+    .bar {
+      height: 10px;
+      margin: 18px 0 12px;
+      border-radius: 999px;
+      background: var(--soft);
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: var(--green);
+      transition: width 0.6s ease;
+    }
+
+    .bar-pending { background: rgba(37, 70, 59, 0.32); }
+
+    .progress-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .friends {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    /* ---------- sections ---------- */
+
+    section { padding: clamp(38px, 6vw, 68px) 0; }
+    .section-head { max-width: 620px; margin-bottom: 28px; }
+    .section-head h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 2.9rem);
+      line-height: 1;
+      color: var(--green);
+    }
+    .section-head p { margin-top: 10px; color: var(--muted); }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: clamp(20px, 3vw, 32px);
+      box-shadow: var(--shadow);
+    }
+
+    .pledge-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ---------- form ---------- */
+
+    label { display: block; font-size: 0.82rem; font-weight: 650; letter-spacing: 0.02em; }
+    .field { margin-bottom: 16px; }
+
+    input[type="text"], input[type="email"], input[type="number"], textarea {
+      width: 100%;
+      margin-top: 6px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    input:focus, textarea:focus, button:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 1px;
+    }
+
+    textarea { min-height: 74px; resize: vertical; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+    .chip {
+      padding: 9px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 650;
+    }
+
+    .chip[aria-pressed="true"] {
+      border-color: var(--green);
+      background: var(--green);
+      color: var(--surface);
+    }
+
+    .btn {
+      padding: 12px 22px;
+      border: 1px solid var(--green);
+      border-radius: 999px;
+      background: var(--green);
+      color: var(--surface);
+      font-weight: 700;
+    }
+
+    .btn[disabled] { opacity: 0.55; cursor: progress; }
+    .btn-quiet { background: transparent; color: var(--green); }
+    .btn-link {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--clay);
+      font-size: 0.88rem;
+      font-weight: 650;
+      text-decoration: underline;
+    }
+
+    .hint { margin-top: 10px; color: var(--muted); font-size: 0.84rem; }
+    .error { margin-top: 10px; color: var(--clay); font-size: 0.88rem; font-weight: 650; }
+
+    /* ---------- paynow ---------- */
+
+    .paynow {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--soft);
+      padding: 20px;
+    }
+
+    .paynow h3 { font-family: var(--serif); font-size: 1.6rem; color: var(--green); }
+    .paynow p { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+    .paynow img { margin: 14px auto 0; max-width: 220px; }
+
+    .reference {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .reference code {
+      flex: 1;
+      padding: 11px 14px;
+      border: 1px dashed var(--green);
+      border-radius: 7px;
+      background: var(--surface);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-align: center;
+    }
+
+    .copy-btn {
+      padding: 11px 14px;
+      border: 1px solid var(--green);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--green);
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* ---------- my pledge ---------- */
+
+    .mine { border-left: 4px solid var(--green); }
+
+    .pledge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pledge-row:last-of-type { border-bottom: 0; }
+    .pledge-row strong { font-family: var(--serif); font-size: 1.5rem; color: var(--green); }
+
+    .tag {
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      font-size: 0.74rem;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tag-received { background: #dfeadf; color: #2c5136; }
+    .tag-cancelled { background: #ece7e2; color: var(--muted); }
+
+    /* ---------- inspiration grid ---------- */
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .card-art {
+      aspect-ratio: 4 / 3;
+      background: var(--soft);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-family: var(--serif);
+      font-size: 2.2rem;
+    }
+
+    .card-art img { width: 100%; height: 100%; object-fit: cover; }
+    .card-body { padding: 14px 16px 18px; }
+    .card-body h3 { font-size: 1rem; font-weight: 700; }
+    .card-body p { margin-top: 6px; color: var(--muted); font-size: 0.84rem; }
+    .card-room {
+      color: var(--clay);
+      font-size: 0.7rem;
+      font-weight: 850;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    footer {
+      padding: 34px 0 54px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      z-index: 40;
+      transform: translate(-50%, 20px);
+      padding: 12px 20px;
+      border-radius: 999px;
+      background: var(--green);
+      color: var(--surface);
+      font-size: 0.9rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 860px) {
+      .hero-grid, .pledge-layout { grid-template-columns: minmax(0, 1fr); }
+      .hero-grid { align-items: start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <header class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <p class="eyebrow">A new home, slowly filling up</p>
+        <h1 id="headline">Things for the New Nest</h1>
+        <p class="hero-copy" id="subtext">Loading…</p>
+      </div>
+
+      <div class="progress-card">
+        <p class="progress-amount" id="progressAmount">—<small id="progressGoal"></small></p>
+        <div class="bar">
+          <span id="barReceived"></span>
+        </div>
+        <div class="progress-meta">
+          <span id="metaReceived"></span>
+          <span id="metaPledged"></span>
+        </div>
+        <p class="friends" id="friends"></p>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <!-- Personal page, only rendered when opened from a magic link -->
+    <section id="mineSection" class="hidden">
+      <div class="panel mine">
+        <div class="section-head" style="margin-bottom:14px;">
+          <h2 id="mineTitle">Your pledge</h2>
+          <p id="mineSubtitle"></p>
+        </div>
+        <div id="mineRows"></div>
+        <div id="minePayNow"></div>
+      </div>
+    </section>
+
+    <section id="pledgeSection">
+      <div class="section-head">
+        <h2>Chip in any amount</h2>
+        <p>There is no list to claim from — pledge whatever feels right and we will do the shopping. You will get an email with the PayNow details straight after.</p>
+      </div>
+
+      <div class="panel">
+        <div class="pledge-layout">
+          <form id="pledgeForm" novalidate>
+            <div class="field">
+              <label for="guestName">Your name</label>
+              <input id="guestName" name="guest_name" type="text" autocomplete="name" maxlength="80" required>
+            </div>
+
+            <div class="field">
+              <label for="guestEmail">Email</label>
+              <input id="guestEmail" name="guest_email" type="email" autocomplete="email" maxlength="200" required>
+              <p class="hint">Only used for your receipt and your private pledge link.</p>
+            </div>
+
+            <div class="field">
+              <label for="amount">Amount (SGD)</label>
+              <div class="chips" id="amountChips"></div>
+              <input id="amount" name="amount_sgd" type="number" min="1" step="1" inputmode="decimal" placeholder="Any amount" required>
+            </div>
+
+            <div class="field">
+              <label for="message">A note for us (optional)</label>
+              <textarea id="message" name="message" maxlength="500"></textarea>
+            </div>
+
+            <button class="btn" type="submit" id="pledgeSubmit">Pledge</button>
+            <p class="error hidden" id="pledgeError"></p>
+            <p class="hint">Nothing is charged here. You transfer by PayNow whenever you like.</p>
+          </form>
+
+          <aside class="paynow" id="pledgeAside">
+            <h3>How it works</h3>
+            <p><strong>1.</strong> Tell us what you would like to give.</p>
+            <p><strong>2.</strong> We show you a PayNow QR and a reference code, and email you the same details.</p>
+            <p><strong>3.</strong> Transfer whenever suits you. We tick it off and send a thank-you.</p>
+            <p><strong>4.</strong> We buy the things and send you photos of where your bit landed.</p>
+          </aside>
+        </div>
+      </div>
+
+      <p class="hint" style="margin-top:18px;">
+        Already pledged?
+        <button class="btn-link" type="button" id="showLookup">Email me my pledge link</button>
+      </p>
+
+      <form id="lookupForm" class="panel hidden" style="margin-top:14px;max-width:460px;">
+        <div class="field">
+          <label for="lookupEmail">The email you used</label>
+          <input id="lookupEmail" type="email" autocomplete="email" maxlength="200" required>
+        </div>
+        <button class="btn btn-quiet" type="submit" id="lookupSubmit">Send me the link</button>
+        <p class="hint" id="lookupHint"></p>
+      </form>
+    </section>
+
+    <section id="itemsSection">
+      <div class="section-head">
+        <h2>What it goes toward</h2>
+        <p>Just so you can picture it. Nothing here needs claiming — these are the things on our list.</p>
+      </div>
+      <div class="grid" id="itemGrid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <p>Thank you, truly. Your company is the real gift.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Server-side value is restricted to [A-Za-z0-9-] before it reaches here.
+    var MAGIC_TOKEN = "<?!= magicToken ?>";
+
+    var state = {
+      settings: {},
+      totals: {},
+      items: [],
+      paynow: {},
+      mine: null,
+      lastPledge: null,
+    };
+
+    function $(id) { return document.getElementById(id); }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function money(amount) {
+      var number = Number(amount) || 0;
+      return "S$" + number.toLocaleString("en-SG", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    var toastTimer = null;
+    function showToast(message) {
+      var toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 3600);
+    }
+
+    /* ---------- rendering ---------- */
+
+    function renderSettings() {
+      var settings = state.settings || {};
+      if (settings.headline) {
+        $("headline").textContent = settings.headline;
+        document.title = settings.headline;
+      }
+      $("subtext").textContent = settings.subtext || "";
+
+      if (settings.closed) {
+        $("pledgeSection").innerHTML = '<div class="panel"><p>' + escapeHtml(settings.closed_message || "Pledges are closed.") + "</p></div>";
+      }
+
+      var chips = $("amountChips");
+      if (!chips) return;
+      chips.innerHTML = (settings.suggested_amounts || []).map(function (amount) {
+        return '<button class="chip" type="button" aria-pressed="false" data-amount="' + amount + '">' + escapeHtml(money(amount)) + "</button>";
+      }).join("");
+    }
+
+    function renderProgress() {
+      var totals = state.totals || {};
+      var goal = Number(state.settings.goal_sgd) || 0;
+      var received = Number(totals.received_sgd) || 0;
+      var pledged = Number(totals.pledged_sgd) || 0;
+
+      $("progressAmount").innerHTML = escapeHtml(money(pledged))
+        + "<small>" + (goal ? "of " + escapeHtml(money(goal)) + " we are saving toward" : "pledged so far") + "</small>";
+
+      var pct = goal ? Math.min(100, (pledged / goal) * 100) : (pledged > 0 ? 100 : 0);
+      $("barReceived").style.width = pct + "%";
+
+      $("metaReceived").textContent = money(received) + " received";
+      $("metaPledged").textContent = Math.max(pledged - received, 0) > 0
+        ? money(pledged - received) + " pledged, on the way"
+        : "";
+
+      var names = totals.names || [];
+      $("friends").textContent = names.length
+        ? names.length + (names.length === 1 ? " friend has" : " friends have") + " chipped in — " + names.join(", ")
+        : "Be the first to chip in.";
+    }
+
+    function renderItems() {
+      var grid = $("itemGrid");
+      if (!state.items.length) {
+        $("itemsSection").classList.add("hidden");
+        return;
+      }
+
+      grid.innerHTML = state.items.map(function (item) {
+        var art = item.image
+          ? '<img src="' + escapeHtml(item.image) + '" alt="" loading="lazy">'
+          : "&#10047;";
+        var detail = item.description || item.reference_title || "";
+        return '<article class="card">'
+          + '<div class="card-art">' + art + "</div>"
+          + '<div class="card-body">'
+          + (item.room ? '<p class="card-room">' + escapeHtml(item.room) + "</p>" : "")
+          + "<h3>" + escapeHtml(item.name) + "</h3>"
+          + (detail ? "<p>" + escapeHtml(detail) + "</p>" : "")
+          + (item.price_sgd ? '<p class="card-room" style="margin-top:8px;color:var(--muted);">' + escapeHtml(item.price_sgd) + "</p>" : "")
+          + "</div></article>";
+      }).join("");
+    }
+
+    function payNowHtml(pledge, paynow) {
+      var details = paynow || state.paynow || {};
+      var parts = ['<h3>PayNow when you are ready</h3>'];
+
+      if (details.number) {
+        parts.push("<p>PayNow to <strong>" + escapeHtml(details.number) + "</strong>"
+          + (details.name ? " (" + escapeHtml(details.name) + ")" : "") + "</p>");
+      }
+      parts.push("<p>Amount: <strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong></p>");
+      parts.push("<p>Put this in the reference field so we know it is you:</p>");
+      parts.push('<div class="reference"><code id="refCode-' + escapeHtml(pledge.pledge_id) + '">'
+        + escapeHtml(pledge.reference_code)
+        + '</code><button class="copy-btn" type="button" data-copy="' + escapeHtml(pledge.reference_code) + '">Copy</button></div>');
+
+      if (details.qr_image_url) {
+        parts.push('<img src="' + escapeHtml(details.qr_image_url) + '" alt="PayNow QR code">');
+      }
+      return parts.join("");
+    }
+
+    function renderConfirmation(pledge, paynow) {
+      state.lastPledge = pledge;
+      $("pledgeSection").innerHTML = '<div class="section-head">'
+        + "<h2>Thank you, " + escapeHtml((pledge.guest_name || "").split(" ")[0]) + "</h2>"
+        + "<p>Your pledge of <strong>" + escapeHtml(money(pledge.amount_sgd))
+        + "</strong> is noted, and we have emailed you these details too.</p></div>"
+        + '<div class="panel"><div class="paynow">' + payNowHtml(pledge, paynow) + "</div>"
+        + '<p class="hint">Nothing is charged automatically. Transfer whenever you like — we will mark it off and send a thank-you.</p></div>';
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function renderMine() {
+      var mine = state.mine;
+      var section = $("mineSection");
+      if (!mine || !mine.pledges || !mine.pledges.length) {
+        section.classList.add("hidden");
+        return;
+      }
+
+      section.classList.remove("hidden");
+      $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
+      $("mineSubtitle").textContent = "This page is private to you.";
+
+      $("mineRows").innerHTML = mine.pledges.map(function (pledge) {
+        var tagClass = pledge.status === "Received" ? "tag tag-received"
+          : pledge.status === "Cancelled" ? "tag tag-cancelled" : "tag";
+        var canCancel = pledge.status === "Pledged";
+        return '<div class="pledge-row">'
+          + "<div><strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong> "
+          + '<span class="' + tagClass + '">' + escapeHtml(pledge.status) + "</span>"
+          + '<p class="hint">Reference ' + escapeHtml(pledge.reference_code) + "</p></div>"
+          + (canCancel
+            ? '<button class="btn-link" type="button" data-cancel="' + escapeHtml(pledge.pledge_id) + '">Cancel this pledge</button>'
+            : "")
+          + "</div>";
+      }).join("");
+
+      var unpaid = mine.pledges.filter(function (pledge) { return pledge.status === "Pledged"; });
+      $("minePayNow").innerHTML = unpaid.length
+        ? '<div class="paynow" style="margin-top:18px;">' + payNowHtml(unpaid[0], mine.paynow) + "</div>"
+        : "";
+    }
+
+    /* ---------- server ---------- */
+
+    function loadRegistry() {
+      google.script.run
+        .withSuccessHandler(function (response) {
+          if (!response || !response.ok) {
+            showToast((response && response.error) || "Could not load the page.");
+            return;
+          }
+          state.settings = response.registry.settings || {};
+          state.totals = response.registry.totals || {};
+          state.items = response.registry.items || [];
+          state.paynow = {
+            number: state.settings.paynow_number,
+            name: state.settings.paynow_name,
+            qr_image_url: state.settings.paynow_qr_image_url,
+          };
+          state.mine = response.my_pledge || null;
+
+          renderSettings();
+          renderProgress();
+          renderItems();
+          renderMine();
+        })
+        .withFailureHandler(function (error) {
+          showToast(error && error.message ? error.message : "Could not load the page.");
+        })
+        .getRegistryDataForClient(MAGIC_TOKEN);
+    }
+
+    $("pledgeForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var button = $("pledgeSubmit");
+      var errorBox = $("pledgeError");
+      errorBox.classList.add("hidden");
+
+      var payload = {
+        guest_name: $("guestName").value.trim(),
+        guest_email: $("guestEmail").value.trim(),
+        amount_sgd: Number($("amount").value),
+        message: $("message").value.trim(),
+      };
+
+      if (!payload.guest_name) return fieldError("Please add your name.");
+      if (!/^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(payload.guest_email)) return fieldError("That email does not look right.");
+      if (!isFinite(payload.amount_sgd) || payload.amount_sgd <= 0) return fieldError("Please enter an amount.");
+
+      button.disabled = true;
+      button.textContent = "Sending…";
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          button.disabled = false;
+          button.textContent = "Pledge";
+          if (!response || !response.ok) return fieldError((response && response.error) || "Something went wrong.");
+          renderConfirmation(response.pledge, response.paynow);
+        })
+        .withFailureHandler(function (error) {
+          button.disabled = false;
+          button.textContent = "Pledge";
+          fieldError(error && error.message ? error.message : "Something went wrong.");
+        })
+        .submitPledgeForClient(payload);
+
+      function fieldError(message) {
+        button.disabled = false;
+        button.textContent = "Pledge";
+        errorBox.textContent = message;
+        errorBox.classList.remove("hidden");
+      }
+    });
+
+    $("showLookup").addEventListener("click", function () {
+      $("lookupForm").classList.toggle("hidden");
+      if (!$("lookupForm").classList.contains("hidden")) $("lookupEmail").focus();
+    });
+
+    $("lookupForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var button = $("lookupSubmit");
+      var email = $("lookupEmail").value.trim();
+      button.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          button.disabled = false;
+          $("lookupHint").textContent = (response && response.message)
+            || "If that email has a pledge, we have just sent the link.";
+        })
+        .withFailureHandler(function () {
+          button.disabled = false;
+          $("lookupHint").textContent = "If that email has a pledge, we have just sent the link.";
+        })
+        .requestPledgeLinkForClient(email);
+    });
+
+    document.addEventListener("click", function (event) {
+      var chip = event.target.closest ? event.target.closest(".chip") : null;
+      if (chip) {
+        document.querySelectorAll(".chip").forEach(function (other) {
+          other.setAttribute("aria-pressed", String(other === chip));
+        });
+        $("amount").value = chip.dataset.amount;
+        return;
+      }
+
+      var copy = event.target.closest ? event.target.closest("[data-copy]") : null;
+      if (copy) {
+        copyText(copy.dataset.copy);
+        return;
+      }
+
+      var cancel = event.target.closest ? event.target.closest("[data-cancel]") : null;
+      if (cancel) {
+        if (!window.confirm("Cancel this pledge?")) return;
+        cancel.disabled = true;
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (!response || !response.ok) {
+              showToast((response && response.error) || "Could not cancel that.");
+              cancel.disabled = false;
+              return;
+            }
+            state.mine = response.my_pledge;
+            renderMine();
+            showToast("Cancelled. No hard feelings.");
+            loadRegistry();
+          })
+          .withFailureHandler(function (error) {
+            cancel.disabled = false;
+            showToast(error && error.message ? error.message : "Could not cancel that.");
+          })
+          .cancelPledgeForClient(MAGIC_TOKEN, cancel.dataset.cancel);
+      }
+    });
+
+    $("amount").addEventListener("input", function () {
+      document.querySelectorAll(".chip").forEach(function (chip) {
+        chip.setAttribute("aria-pressed", String(chip.dataset.amount === $("amount").value));
+      });
+    });
+
+    function copyText(text) {
+      // navigator.clipboard is unavailable in some in-app browsers, so fall
+      // back to a hidden textarea before giving up.
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          showToast("Reference copied");
+        }, legacyCopy);
+        return;
+      }
+      legacyCopy();
+
+      function legacyCopy() {
+        var field = document.createElement("textarea");
+        field.value = text;
+        field.setAttribute("readonly", "readonly");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        field.setSelectionRange(0, text.length);
+        try {
+          document.execCommand("copy");
+          showToast("Reference copied");
+        } catch (error) {
+          showToast("Copy it manually: " + text);
+        }
+        document.body.removeChild(field);
+      }
+    }
+
+    loadRegistry();
+  </script>
+</body>
+</html>
