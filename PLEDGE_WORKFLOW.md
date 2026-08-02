@@ -2,7 +2,12 @@
 
 Friends pledge any amount into one pot. You buy the items yourself.
 
-Code lives in `apps-script-pledge/`. The older item-claiming build is untouched in `apps-script/` — keep it around until this one is deployed and working, then it can go.
+Two pieces:
+
+- **The page** your friends see — `docs/index.html`, served free at **https://stellassx94.github.io/new-nest/** from the `stellassx94/new-nest` repo.
+- **The backend** — `apps-script-pledge/`, a Google Apps Script bound to the `Bishan Renovation` spreadsheet. Holds the data, sends the emails.
+
+The page calls the script as a JSON API. The older item-claiming build is untouched in `apps-script/` (git-ignored, local only) — keep it until this one works, then it can go.
 
 ## Source of truth
 
@@ -28,6 +33,7 @@ Spreadsheet: `Bishan Renovation`
 | `paynow_qr_image_url` | Public `https://` link to your QR image. Blank hides the QR |
 | `page_headline` / `page_subtext` | The big title and the warm line under it |
 | `suggested_amounts` | Comma-separated preset chips, e.g. `50, 100, 200, 388` |
+| `site_url` | `https://stellassx94.github.io/new-nest/` — makes magic links in emails point at the nice URL instead of the raw script one |
 | `closed` | `TRUE` stops new pledges and shows `closed_message` |
 | `thank_you_message` | Optional extra line in thank-you emails |
 
@@ -53,12 +59,34 @@ The page never shows who gave how much — only first names and a count.
 
 ## Setup, once
 
-1. Export your PayNow QR from your banking app. Put it somewhere with a public `https://` URL (Drive shared "anyone with the link", or any image host) and paste that URL into `Pledge Config`.
-2. Fill in `goal_sgd`, `paynow_number`, `paynow_name`, and the headline copy.
-3. Push `apps-script-pledge/` to the bound Apps Script project (`Code.gs`, `Index.html`, `appsscript.json`).
-4. In the spreadsheet: `New Nest Registry` → `Install/refresh automation`. Approve the consent screen — it now also asks to **send email as you**, which is what the confirmations and thank-yous use.
-5. Deploy → New deployment → Web app, **Execute as: me**, **Who has access: anyone**. Copy the URL.
-6. Open the URL yourself and make one test pledge before sharing it.
+**Backend first — the site cannot work until this is done.**
+
+1. Copy `apps-script-pledge/` into the Apps Script project bound to `Bishan Renovation` (`Code.gs`, `Index.html`, `appsscript.json`).
+2. In the spreadsheet: `New Nest Registry` → `Install/refresh automation`. Approve the consent screen — it now also asks to **send email as you**, which is what the confirmations and thank-yous use.
+3. Deploy → New deployment → **Web app**, Execute as **me**, Who has access **Anyone**. Copy the URL — it ends in `/exec`.
+
+**Then connect the site.**
+
+4. In `docs/index.html`, replace `PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE` (near the top of the `<script>` block) with that `/exec` URL. Commit and push — GitHub Pages redeploys in about a minute.
+5. In `Pledge Config`, set `site_url` to `https://stellassx94.github.io/new-nest/` so the links in your emails point at the nice URL.
+
+**Then fill in your details.**
+
+6. Export your PayNow QR from your banking app. Put it somewhere with a public `https://` URL (Drive shared "anyone with the link", or any image host) and paste that URL into `paynow_qr_image_url`.
+7. Fill in `goal_sgd`, `paynow_number`, `paynow_name`, and the headline copy.
+8. Open https://stellassx94.github.io/new-nest/ and make one test pledge to yourself before sharing it. Then set that row's `status` to `Cancelled`.
+
+**Note on step 3:** every time you edit `Code.gs`, you must deploy a *new version* (Deploy → Manage deployments → edit → Version: New version) for the change to go live. Saving alone does nothing.
+
+## Changing the page later
+
+Edit `docs/index.html`, then:
+
+```
+git add -A && git commit -m "..." && git push
+```
+
+Live in about a minute. No Apps Script deploy needed for page-only changes.
 
 ## Automation already running
 
@@ -75,6 +103,10 @@ Manual refresh: `New Nest Registry` → `Refresh pledge dashboard`.
 - Emails, tokens and reference codes never appear in the public page data.
 - Submissions are throttled per email (30s for pledges, 60s for link requests).
 
-## Deployment
+## Addresses
 
-Web app URL: _fill in after the first deploy_
+| | |
+|---|---|
+| Share this with friends | https://stellassx94.github.io/new-nest/ |
+| Repo | https://github.com/stellassx94/new-nest |
+| Apps Script `/exec` URL | _fill in after the first deploy_ |
