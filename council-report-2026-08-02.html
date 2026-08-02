@@ -1,0 +1,212 @@
+<meta charset="utf-8">
+<title>Council Verdict — New Nest Pledge Site</title>
+<style>
+  /* Palette borrows the site it is reviewing: parchment, sage, clay. */
+  :root {
+    --paper:#faf8f2; --card:#fffefa; --ink:#1c211d; --muted:#6d736a;
+    --line:#e4dfd2; --accent:#2c5545; --accent-soft:#eef2ec; --clay:#a2543c;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#141714; --card:#1b1f1b; --ink:#e7e6de; --muted:#9aa096;
+      --line:#2e332e; --accent:#8fbfa5; --accent-soft:#1f2a23; --clay:#d69374;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#141714; --card:#1b1f1b; --ink:#e7e6de; --muted:#9aa096;
+    --line:#2e332e; --accent:#8fbfa5; --accent-soft:#1f2a23; --clay:#d69374;
+  }
+  :root[data-theme="light"] {
+    --paper:#faf8f2; --card:#fffefa; --ink:#1c211d; --muted:#6d736a;
+    --line:#e4dfd2; --accent:#2c5545; --accent-soft:#eef2ec; --clay:#a2543c;
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.65 var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:47rem; margin:0 auto; padding:clamp(28px,5vw,56px) 20px 80px; display:flex; flex-direction:column; }
+
+  h1 {
+    font-family:var(--serif); font-size:clamp(1.9rem,4.5vw,2.6rem);
+    font-weight:600; line-height:1.1; margin:0 0 8px; text-wrap:balance;
+  }
+  h2 {
+    font-family:var(--serif); font-size:1.35rem; font-weight:600;
+    color:var(--accent); margin:44px 0 4px; padding-bottom:8px;
+    border-bottom:1px solid var(--line); text-wrap:balance;
+  }
+  h3 { font-size:1rem; font-weight:650; margin:24px 0 2px; }
+  p, ol, ul, table, details, .verdict { margin:12px 0; }
+  .sub {
+    color:var(--muted); font-size:0.85rem; letter-spacing:0.08em;
+    text-transform:uppercase; margin:0 0 28px;
+  }
+
+  .verdict {
+    border:1px solid var(--line); border-left:3px solid var(--accent);
+    background:var(--card); padding:20px 24px; border-radius:4px;
+  }
+  .verdict p { margin:0; }
+
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:0.92rem; min-width:34rem; }
+  th, td { border-bottom:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top; }
+  th {
+    font-size:0.72rem; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--muted); font-weight:700; border-bottom:1px solid var(--ink);
+  }
+  .yes, .no, .mid { font-weight:650; white-space:nowrap; }
+  .yes { color:var(--accent); }
+  .no { color:var(--clay); }
+  .mid { color:var(--muted); }
+
+  details {
+    border:1px solid var(--line); border-radius:4px;
+    padding:12px 16px; background:var(--card);
+  }
+  details[open] { border-color:var(--accent); }
+  summary { cursor:pointer; font-weight:650; }
+  summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:2px; }
+  details p:first-of-type { margin-top:12px; }
+
+  li { margin:8px 0; }
+  code {
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.88em;
+    background:var(--accent-soft); padding:1px 5px; border-radius:3px;
+  }
+  em { color:var(--muted); }
+  a { color:var(--accent); }
+  footer {
+    margin-top:56px; padding-top:16px; border-top:1px solid var(--line);
+    color:var(--muted); font-size:0.85rem;
+  }
+</style>
+<div class="wrap">
+
+<h1>Council Verdict — New Nest Pledge Site</h1>
+<p class="sub">5 advisors, 3 peer reviews, 1 synthesis · 2 August 2026</p>
+
+<div class="verdict">
+<p><strong>Short version:</strong> the page is functionally fine and emotionally empty. The one unanimous finding is that a page asking friends for bank transfers, with no names on it, reads as a scam. Everything else is secondary to that. Of the five requests, two are right (names, images), one is right but must be built differently than described (self-marking paid), one is wrong (shared-password login), and one needs no build at all (owner view).</p>
+</div>
+
+<h2>Where the council agrees</h2>
+
+<ol>
+<li><strong>The missing names are the single biggest problem.</strong> Four of five raised it unprompted. The Outsider, reading it cold as a friend receiving a WhatsApp link: <em>"I'd genuinely wonder for a second whether it's a scam page — a static site asking for bank transfers, no names, no photo, just a serif font and a progress bar."</em> Five-minute fix, largest effect of anything on the list.</li>
+
+<li><strong>Kill the shared password.</strong> Four of five, independently and bluntly. It authenticates nobody, prevents nothing, and puts a locked door between "friend wants to give money" and "friend gives money." Worse, the Outsider's read: a shared password on a money page <em>signals "we didn't think this through," not "this is secure" — I'd trust the no-login version more.</em></li>
+
+<li><strong>Never let a friend's "I paid" set the real status.</strong> The Contrarian and the Executor converged on the same design from opposite directions: a separate <code>claims_paid</code> flag, shown as its own colour, never merged into <code>Received</code>. Otherwise the dashboard has two sources of truth for whether money arrived, and no process for when they disagree.</li>
+
+<li><strong>Don't build an owner web view.</strong> The Sheet is the right owner surface. Bookmark it.</li>
+</ol>
+
+<h2>Where the council clashes</h2>
+
+<h3>What "can't even go back" actually means</h3>
+<p>The Executor read it as a session problem — friends can't return to see their pledge. The Contrarian read it as something worse: <em>"no undo, ever, anywhere… What happens when someone pledges $200, then wants to change it to $100? They email Stella, it becomes a manual sheet edit under social pressure, right before a party. The real ask is 'let me fix my own mistake,' not 'let me confirm my payment.'"</em></p>
+<p><strong>Chairman:</strong> the Contrarian is right, and it is the more expensive gap. Today a friend can cancel but not amend. Both need fixing; amend is the one nobody asked for and everybody will want.</p>
+
+<h3>Public first names</h3>
+<p>The Expansionist wants to go further — a live feed, a public "wall of love" with names and messages, the goal reframed as a floor rather than a ceiling. Two of three peer reviewers pushed back hard, and the third named the mechanism: <em>"publicly listing first names creates an implicit leaderboard and a visible non-giver list. Anyone who hasn't given yet is conspicuous by absence; anyone who gives late looks like they were shamed into it."</em></p>
+<p><strong>Chairman:</strong> the Expansionist is solving for a crowdfunding campaign. This is thirty friends. Social proof helps; a scoreboard between friends does not. Keep names, add an opt-out, don't build the feed.</p>
+
+<h2>Blind spots the peer review caught</h2>
+
+<ul>
+<li><strong>The app-switch is where people actually drop off</strong> — not the password, not the images. <em>"Friend taps PayNow, leaves the browser to open their banking app, must hold NEST-4KQ2 in memory or fumble between apps to copy it, then tab back."</em> Nobody addressed the one moment the whole system depends on.</li>
+<li><strong>Silent limbo.</strong> A pledge with no bank match, after the 30-day token expires, has no path back in and no visibility — for someone's money. Flagged as the real embarrassment risk, worse than missing names.</li>
+<li><strong>The shared password leaks on first forward</strong> and never rotates. Once one friend forwards the WhatsApp message, it protects nothing.</li>
+<li><strong>No data retention plan</strong> for friends' names and emails after the party.</li>
+<li><strong>Cancelling after your name showed publicly</strong> — the name silently vanishing is itself a signal.</li>
+</ul>
+
+<h2>Verdict on each request</h2>
+
+<div class="scroll">
+<table>
+<tr><th>Request</th><th>Verdict</th><th>What to do instead</th></tr>
+<tr><td>Shared password login</td><td class="no">Rejected as asked</td><td>Don't gate the pledge form. If privacy is the real motive, gate server-side with the key pre-filled in the shared link, so invited friends never see a login and a stranger does.</td></tr>
+<tr><td>Friends self-mark transferred</td><td class="mid">Yes, rebuilt</td><td>Separate <code>claims_paid</code> flag + timestamp. Blue row = "says they paid, go check the bank." Never touches <code>Received</code>.</td></tr>
+<tr><td>Come back and check pledge</td><td class="yes">Yes</td><td>Remember them in the browser after pledging — no login needed. Magic link stays as the cross-device path. Add <strong>amend</strong>, not just cancel.</td></tr>
+<tr><td>Fix the images</td><td class="yes">Yes</td><td><code>contain</code> on a neutral pad, not <code>cover</code>. Stop cropping product shots. Hide the grid entirely if fewer than ~4 usable images.</td></tr>
+<tr><td>Owner view</td><td class="no">No build</td><td>The <code>Pledge Dashboard</code> tab is it. Bookmark the Sheet.</td></tr>
+<tr><td>Couple's names</td><td class="yes">Yes — do this first</td><td>"Stella &amp; Jia Qi" in the hero, a photo if there is one, and a line in the friend's own voice about why cash rather than things.</td></tr>
+</table>
+</div>
+
+<h2>The recommendation</h2>
+<p>Ship in this order. Everything above the line matters more than everything below it.</p>
+<ol>
+<li><strong>Names, faces, and a reason</strong> in the hero. Removes the scam-read. Costs minutes.</li>
+<li><strong>Make paying survivable on a phone</strong> — reference code impossible to lose, visible when they come back, repeated in the email. This is where the money is actually won or lost.</li>
+<li><strong>Amend and cancel</strong>, plus remembering the friend in the browser. This is what "can't go back" really meant.</li>
+<li><strong>"I've sent it" as a nudge</strong>, in its own column and its own colour.</li>
+<li><strong>Images:</strong> contain, pad, or hide.</li>
+<li>Skip: the login, the live feed, the owner web view.</li>
+</ol>
+
+<h2>The one thing to do first</h2>
+<p><strong>Put "Stella &amp; Jia Qi" and a photo in the hero, with one sentence in your own voice about why you are asking for money instead of things.</strong> Every advisor who looked at this page cold had the same reaction, and no amount of login screens, dashboards or image cropping fixes a page that reads like a phishing template.</p>
+
+<h2>Full advisor responses</h2>
+
+<details><summary>The Contrarian — two sources of truth, and no undo</summary>
+<p>Fatal flaw first: this system has TWO sources of truth for "did the money arrive" — the friend's self-report and Stella's bank reconciliation — and the design does nothing to keep them from diverging. Owner request #2 sounds like a fix but is actually a trap. If a friend can self-mark "Paid," that status will get treated as truth by anyone glancing at the dashboard, but it isn't verified — it's a claim. Worst case someone fat-fingers the reference code, self-marks "paid," Stella's bank never shows a match, and now there's a live discrepancy with no process to resolve it. Don't build a second status field. Build a third state: <code>claims_paid</code>, rendered to Stella as a sortable filter ("claims paid, unconfirmed") — never merged into or displayed as the same field as <code>Received</code>.</p>
+<p>Second flaw: no undo, ever, anywhere. "Can't even go back" is not a UI nitpick, it's the whole system lacking a correction path. What happens when someone pledges $200, then wants to change it to $100? Right now: nothing, they email Stella, it becomes a manual sheet edit under social pressure, right before a party. That's the actual failure mode "self-mark paid" is being asked to patch over — the real ask is "let me fix my own mistake."</p>
+<p>Third, unaddressed: what happens to a pledge with no bank match after 30 days and an expired magic link? No path back in, no visibility, silent limbo — for someone's money. That's the actual embarrassment risk, worse than missing names or ugly images.</p>
+</details>
+
+<details><summary>The First Principles Thinker — strip mechanism, don't add it</summary>
+<p>What are we actually building? Not a "website with bugs" — a trust protocol for extracting money from friends, wrapped in a wedding-registry aesthetic. Every complaint on this list is a request to add mechanism. The right move is to strip mechanism, not add it.</p>
+<p>Kill the login idea entirely. A shared password isn't authentication — it's decoration that fools no one and actively harms the ask. The moment you gate a money page behind a password, you've imported the vocabulary of "restricted access" and "security" onto something that should feel like an envelope handed to a friend. Nobody forgets a URL you sent them personally; that link <em>is</em> the login. The stated problem — "friends can't check whether they've pledged" — is a session-state problem, not an identity problem.</p>
+<p>Reject "auto mark when transferred" as originally framed. A self-reported "I paid" button doesn't solve reconciliation, it duplicates it — now Stella must cross-check claims against her bank app anyway, except now there's a second ledger that can be wrong. The actual unmet need is: Stella wants less manual matching work. The fix is upstream, at generation time — not a friend-facing "trust me" button that launders effort back onto Stella under a different name.</p>
+<p>The real gap is emotional, not functional: no names, on a page asking people for money for <em>them</em>. That's the one "bug" that's actually a bug — everything else is scope creep dressed as feature requests.</p>
+</details>
+
+<details><summary>The Expansionist — build the feed, not the login</summary>
+<p>Skip the debate about whether the shared password gate is annoying — that's small ball. The actual missed opportunity: this pot has S$5000 of goodwill flowing through it, and the site is treating it like a transaction form when it should be treating it like a live event.</p>
+<p>The upside nobody's chasing: the wall becomes the gift. Right now, once someone pledges, they get a receipt and vanish. That's the whole loop. But "N friends have chipped in" plus first names is 80% of the way to a live feed, and live feeds are what make people pledge more and faster. The S$5000 goal reads like a ceiling; reframe it as a floor.</p>
+<p>Second: the messages are being wasted. Optional message field, buried in a spreadsheet only Stella sees. That's the emotional payload of the whole page and it's currently write-only. Put a rotating "wall of love" on the public page. This is also the answer to "what's missing emotionally" — it's not the couple's names, it's the absence of the <em>friends</em> on the page. Right now the site is Stella broadcasting at people. Flip it.</p>
+<p>Third, smaller but free: let a pledge optionally tag "toward the sofa" even though it still goes into one pot. Makes giving concrete; the S$388 preset shows people already want specificity.</p>
+</details>
+
+<details><summary>The Outsider — this reads like a phishing page</summary>
+<p>Someone forwarded me this link. Cold read, no context: I clicked expecting to see who I'm giving money to. I don't. The headline says "Things for the New Nest" with no names anywhere on the page. If this landed in my WhatsApp with just the URL, I'd genuinely wonder for a second whether it's a scam page — a static site asking for bank transfers, no names, no photo of the actual couple, just a serif font and a progress bar. That's the single biggest thing wrong with it and it's a five-minute fix.</p>
+<p>The reference-code-into-PayNow flow is fine in concept but relies entirely on me not messing it up. I will forget to paste NEST-4KQ2 into the reference field at least once in my life. When that happens, from my side there's no way to know if it worked — I'd want a clear "yes, we got it, thank you" moment, not silence until I maybe get a thank-you email weeks later.</p>
+<p>The shared-password login is bad from a stranger's-eyes view: a shared password for a money page smells worse than no login at all. I'd trust the current no-login version more.</p>
+<p>The scraped product images: a blurry stock photo of a rice cooker next to a glossy lifestyle shot makes me assume the site was thrown together in an afternoon, which undercuts the warmth of the whole ask.</p>
+</details>
+
+<details><summary>The Executor — what ships Monday</summary>
+<p><strong>1. Kill the login.</strong> It's the worst request on the list. A shared password adds a login screen between "friend wants to give money" and "friend gives money." Pure drop-off with zero benefit. Stella wants it because it <em>feels</em> more official, but it isn't.</p>
+<p><strong>2. Images: 30 minutes, not a redesign.</strong> The real fix is object-position plus a light background behind transparent PNGs, and cap image height so low-res ones don't look pixelated. Swap the handful of genuinely bad ones manually — there are under 20 rows.</p>
+<p><strong>3. "I have transferred" — build it, but as a nudge not a second ledger.</strong> A button on the panel: "I've sent this." Timestamps a <code>self_reported</code> column and flips the dashboard row to a third colour (blue, not green) so Stella knows to check her bank app <em>now</em> instead of waiting days. Never auto-sets Received. Highest-leverage fix for both the friction question and complaint #2.</p>
+<p><strong>4. Owner dashboard access:</strong> bookmark the sheet URL, pin the custom menu. Don't build an owner web view.</p>
+<p><strong>5. Names on page:</strong> one line under the headline, five minutes, ship it. Currently actively weird for an ask-for-money page.</p>
+</details>
+
+<details><summary>Peer review highlights</summary>
+<p><strong>Strongest response:</strong> two reviewers picked the Contrarian ("the only response that identifies a systemic flaw rather than a checklist of fixes"), one picked the First Principles Thinker ("the only response that questions whether the feature request solves the real problem instead of just building what was asked").</p>
+<p><strong>Biggest blind spot:</strong> all three reviewers picked the Expansionist, unanimously. "A growth-hacking pivot applied to a page collecting real bank transfers from friends… optimizing for virality on a page that should optimize for trust and low friction."</p>
+<p><strong>What everyone missed:</strong></p>
+<ul>
+<li>The phone reality of paying — leaving the browser for the banking app, holding the reference code in your head, fumbling back. "That's where real drop-off happens — not the password or the images."</li>
+<li>Publicly listing first names creates an implicit leaderboard and a visible non-giver list. What happens when a cancelled pledge makes a name silently vanish?</li>
+<li>The shared password leaks the first time someone forwards the message, and never rotates.</li>
+<li>No plan for deleting friends' names and emails after the event.</li>
+</ul>
+</details>
+
+<footer>
+Council of five (Contrarian · First Principles · Expansionist · Outsider · Executor), three anonymised peer reviews, chairman synthesis.<br>
+Subject: <a href="https://stellassx94.github.io/xjq-new-nest/">stellassx94.github.io/xjq-new-nest</a> · 2 August 2026
+</footer>
+
+</div>

@@ -15,6 +15,7 @@
       --line: #ddd4c8;
       --green: #25463b;
       --clay: #9f5a43;
+      --blue: #35607f;
       --soft: #ede7de;
       --shadow: 0 18px 46px rgba(31, 37, 34, 0.09);
       --serif: "Cormorant Garamond", Georgia, serif;
@@ -32,7 +33,7 @@
       line-height: 1.45;
     }
 
-    button, input, textarea, select { font: inherit; }
+    button, input, textarea { font: inherit; }
     button { cursor: pointer; }
     a { color: inherit; }
     h1, h2, h3, p { margin: 0; }
@@ -43,11 +44,38 @@
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
+    .hidden { display: none !important; }
+
+    /* ---------- gate ---------- */
+
+    .gate {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: var(--paper);
+    }
+
+    .gate-card {
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 32px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .gate-card h2 { font-family: var(--serif); font-size: 2.1rem; color: var(--green); line-height: 1; }
+    .gate-card p { margin-top: 12px; color: var(--muted); font-size: 0.92rem; }
+    .gate-card form { margin-top: 20px; }
 
     /* ---------- hero ---------- */
 
     .hero {
-      padding: clamp(38px, 7vw, 76px) 0 clamp(26px, 5vw, 52px);
+      padding: clamp(34px, 6vw, 68px) 0 clamp(24px, 5vw, 48px);
       border-bottom: 1px solid var(--line);
       background:
         linear-gradient(90deg, rgba(37, 70, 59, 0.08) 1px, transparent 1px),
@@ -59,13 +87,37 @@
     .hero-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
-      gap: clamp(26px, 6vw, 72px);
+      gap: clamp(26px, 6vw, 68px);
       align-items: end;
     }
 
-    .eyebrow {
+    .couple {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .couple img {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .couple-names {
+      font-family: var(--serif);
+      font-size: clamp(1.5rem, 3.4vw, 2rem);
+      font-weight: 600;
+      line-height: 1.05;
+      color: var(--green);
+    }
+
+    .couple-sub {
       color: var(--clay);
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       font-weight: 850;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -73,18 +125,26 @@
 
     h1 {
       max-width: 720px;
-      margin-top: 14px;
       font-family: var(--serif);
-      font-size: clamp(3.2rem, 9vw, 7rem);
+      font-size: clamp(2.9rem, 8vw, 6rem);
       font-weight: 700;
-      line-height: 0.86;
+      line-height: 0.88;
     }
 
     .hero-copy {
       max-width: 620px;
-      margin-top: 20px;
+      margin-top: 18px;
       color: var(--muted);
-      font-size: clamp(1rem, 2vw, 1.18rem);
+      font-size: clamp(1rem, 2vw, 1.14rem);
+    }
+
+    .why {
+      max-width: 620px;
+      margin-top: 14px;
+      padding-left: 16px;
+      border-left: 2px solid var(--line);
+      color: var(--ink);
+      font-size: 1rem;
     }
 
     /* ---------- progress ---------- */
@@ -93,14 +153,14 @@
       border: 1px solid var(--line);
       border-radius: 10px;
       background: rgba(255, 253, 248, 0.85);
-      padding: clamp(20px, 3vw, 30px);
+      padding: clamp(20px, 3vw, 28px);
       box-shadow: var(--shadow);
     }
 
     .progress-amount {
       color: var(--green);
       font-family: var(--serif);
-      font-size: clamp(2.4rem, 5vw, 3.4rem);
+      font-size: clamp(2.3rem, 5vw, 3.2rem);
       line-height: 1;
     }
 
@@ -109,12 +169,12 @@
       margin-top: 6px;
       color: var(--muted);
       font-family: var(--body);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
 
     .bar {
       height: 10px;
-      margin: 18px 0 12px;
+      margin: 16px 0 10px;
       border-radius: 999px;
       background: var(--soft);
       overflow: hidden;
@@ -129,31 +189,23 @@
       transition: width 0.6s ease;
     }
 
-    .bar-pending { background: rgba(37, 70, 59, 0.32); }
-
-    .progress-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 14px;
-      color: var(--muted);
-      font-size: 0.88rem;
-    }
+    .progress-meta { color: var(--muted); font-size: 0.86rem; }
 
     .friends {
-      margin-top: 14px;
-      padding-top: 14px;
+      margin-top: 12px;
+      padding-top: 12px;
       border-top: 1px solid var(--line);
       color: var(--muted);
-      font-size: 0.88rem;
+      font-size: 0.86rem;
     }
 
     /* ---------- sections ---------- */
 
-    section { padding: clamp(38px, 6vw, 68px) 0; }
-    .section-head { max-width: 620px; margin-bottom: 28px; }
+    section { padding: clamp(34px, 5vw, 60px) 0; }
+    .section-head { max-width: 620px; margin-bottom: 24px; }
     .section-head h2 {
       font-family: var(--serif);
-      font-size: clamp(2rem, 4vw, 2.9rem);
+      font-size: clamp(1.9rem, 4vw, 2.7rem);
       line-height: 1;
       color: var(--green);
     }
@@ -163,23 +215,23 @@
       border: 1px solid var(--line);
       border-radius: 10px;
       background: var(--surface);
-      padding: clamp(20px, 3vw, 32px);
+      padding: clamp(20px, 3vw, 30px);
       box-shadow: var(--shadow);
     }
 
     .pledge-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+      grid-template-columns: minmax(0, 1fr) minmax(270px, 0.75fr);
       gap: 24px;
       align-items: start;
     }
 
     /* ---------- form ---------- */
 
-    label { display: block; font-size: 0.82rem; font-weight: 650; letter-spacing: 0.02em; }
+    label { display: block; font-size: 0.82rem; font-weight: 650; }
     .field { margin-bottom: 16px; }
 
-    input[type="text"], input[type="email"], input[type="number"], textarea {
+    input[type="text"], input[type="email"], input[type="number"], input[type="password"], textarea {
       width: 100%;
       margin-top: 6px;
       padding: 11px 13px;
@@ -194,7 +246,17 @@
       outline-offset: 1px;
     }
 
-    textarea { min-height: 74px; resize: vertical; }
+    textarea { min-height: 70px; resize: vertical; }
+
+    .check {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      font-size: 0.86rem;
+      font-weight: 400;
+      color: var(--muted);
+    }
+    .check input { margin-top: 3px; }
 
     .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
@@ -229,7 +291,7 @@
       border: 0;
       background: none;
       color: var(--clay);
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       font-weight: 650;
       text-decoration: underline;
     }
@@ -246,16 +308,15 @@
       padding: 20px;
     }
 
-    .paynow h3 { font-family: var(--serif); font-size: 1.6rem; color: var(--green); }
+    .paynow h3 { font-family: var(--serif); font-size: 1.5rem; color: var(--green); }
     .paynow p { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
     .paynow img { margin: 14px auto 0; max-width: 220px; }
 
-    .reference {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 14px;
-    }
+    .steps { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
+    .steps li { margin: 6px 0; }
+    .steps strong { color: var(--ink); }
+
+    .reference { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
 
     .reference code {
       flex: 1;
@@ -287,7 +348,7 @@
     .pledge-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px 16px;
+      gap: 10px 16px;
       align-items: baseline;
       justify-content: space-between;
       padding: 14px 0;
@@ -296,25 +357,28 @@
 
     .pledge-row:last-of-type { border-bottom: 0; }
     .pledge-row strong { font-family: var(--serif); font-size: 1.5rem; color: var(--green); }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 
     .tag {
+      display: inline-block;
       padding: 3px 10px;
       border-radius: 999px;
       background: var(--soft);
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       font-weight: 750;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
     .tag-received { background: #dfeadf; color: #2c5136; }
+    .tag-sent { background: #dce9f3; color: var(--blue); }
     .tag-cancelled { background: #ece7e2; color: var(--muted); }
 
     /* ---------- inspiration grid ---------- */
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 18px;
     }
 
@@ -327,30 +391,42 @@
       overflow: hidden;
     }
 
+    /*
+      Product shots come from a dozen different shops at a dozen different
+      sizes. `contain` on a neutral pad shows each one whole instead of
+      cropping into it, which is what made the grid look broken.
+    */
     .card-art {
       aspect-ratio: 4 / 3;
-      background: var(--soft);
       display: grid;
       place-items: center;
-      color: var(--muted);
-      font-family: var(--serif);
-      font-size: 2.2rem;
+      padding: 12px;
+      background: #f6f2ea;
+      border-bottom: 1px solid var(--line);
     }
 
-    .card-art img { width: 100%; height: 100%; object-fit: cover; }
+    .card-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+    }
+
+    .card-art .glyph { color: var(--line); font-family: var(--serif); font-size: 2.4rem; }
+
     .card-body { padding: 14px 16px 18px; }
-    .card-body h3 { font-size: 1rem; font-weight: 700; }
-    .card-body p { margin-top: 6px; color: var(--muted); font-size: 0.84rem; }
+    .card-body h3 { font-size: 0.98rem; font-weight: 700; }
+    .card-body p { margin-top: 6px; color: var(--muted); font-size: 0.83rem; }
     .card-room {
       color: var(--clay);
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 850;
       letter-spacing: 0.12em;
       text-transform: uppercase;
     }
 
     footer {
-      padding: 34px 0 54px;
+      padding: 32px 0 52px;
       border-top: 1px solid var(--line);
       color: var(--muted);
       font-size: 0.84rem;
@@ -360,7 +436,7 @@
       position: fixed;
       left: 50%;
       bottom: 26px;
-      z-index: 40;
+      z-index: 70;
       transform: translate(-50%, 20px);
       padding: 12px 20px;
       border-radius: 999px;
@@ -374,8 +450,6 @@
 
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-    .hidden { display: none !important; }
-
     @media (max-width: 860px) {
       .hero-grid, .pledge-layout { grid-template-columns: minmax(0, 1fr); }
       .hero-grid { align-items: start; }
@@ -385,116 +459,148 @@
 <body>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <header class="hero">
-    <div class="shell hero-grid">
-      <div>
-        <p class="eyebrow">A new home, slowly filling up</p>
-        <h1 id="headline">Things for the New Nest</h1>
-        <p class="hero-copy" id="subtext">Loading…</p>
-      </div>
-
-      <div class="progress-card">
-        <p class="progress-amount" id="progressAmount">—<small id="progressGoal"></small></p>
-        <div class="bar">
-          <span id="barReceived"></span>
-        </div>
-        <div class="progress-meta">
-          <span id="metaReceived"></span>
-          <span id="metaPledged"></span>
-        </div>
-        <p class="friends" id="friends"></p>
-      </div>
-    </div>
-  </header>
-
-  <main class="shell">
-    <!-- Personal page, only rendered when opened from a magic link -->
-    <section id="mineSection" class="hidden">
-      <div class="panel mine">
-        <div class="section-head" style="margin-bottom:14px;">
-          <h2 id="mineTitle">Your pledge</h2>
-          <p id="mineSubtitle"></p>
-        </div>
-        <div id="mineRows"></div>
-        <div id="minePayNow"></div>
-      </div>
-    </section>
-
-    <section id="pledgeSection">
-      <div class="section-head">
-        <h2>Chip in any amount</h2>
-        <p>There is no list to claim from — pledge whatever feels right and we will do the shopping. You will get an email with the PayNow details straight after.</p>
-      </div>
-
-      <div class="panel">
-        <div class="pledge-layout">
-          <form id="pledgeForm" novalidate>
-            <div class="field">
-              <label for="guestName">Your name</label>
-              <input id="guestName" name="guest_name" type="text" autocomplete="name" maxlength="80" required>
-            </div>
-
-            <div class="field">
-              <label for="guestEmail">Email</label>
-              <input id="guestEmail" name="guest_email" type="email" autocomplete="email" maxlength="200" required>
-              <p class="hint">Only used for your receipt and your private pledge link.</p>
-            </div>
-
-            <div class="field">
-              <label for="amount">Amount (SGD)</label>
-              <div class="chips" id="amountChips"></div>
-              <input id="amount" name="amount_sgd" type="number" min="1" step="1" inputmode="decimal" placeholder="Any amount" required>
-            </div>
-
-            <div class="field">
-              <label for="message">A note for us (optional)</label>
-              <textarea id="message" name="message" maxlength="500"></textarea>
-            </div>
-
-            <button class="btn" type="submit" id="pledgeSubmit">Pledge</button>
-            <p class="error hidden" id="pledgeError"></p>
-            <p class="hint">Nothing is charged here. You transfer by PayNow whenever you like.</p>
-          </form>
-
-          <aside class="paynow" id="pledgeAside">
-            <h3>How it works</h3>
-            <p><strong>1.</strong> Tell us what you would like to give.</p>
-            <p><strong>2.</strong> We show you a PayNow QR and a reference code, and email you the same details.</p>
-            <p><strong>3.</strong> Transfer whenever suits you. We tick it off and send a thank-you.</p>
-            <p><strong>4.</strong> We buy the things and send you photos of where your bit landed.</p>
-          </aside>
-        </div>
-      </div>
-
-      <p class="hint" style="margin-top:18px;">
-        Already pledged?
-        <button class="btn-link" type="button" id="showLookup">Email me my pledge link</button>
-      </p>
-
-      <form id="lookupForm" class="panel hidden" style="margin-top:14px;max-width:460px;">
-        <div class="field">
-          <label for="lookupEmail">The email you used</label>
-          <input id="lookupEmail" type="email" autocomplete="email" maxlength="200" required>
-        </div>
-        <button class="btn btn-quiet" type="submit" id="lookupSubmit">Send me the link</button>
-        <p class="hint" id="lookupHint"></p>
+  <!-- Shown only to someone who arrives without the key in their link -->
+  <div class="gate hidden" id="gate">
+    <div class="gate-card">
+      <h2>A private page</h2>
+      <p>This is for our friends. If you were sent a link, open that one — it lets you straight in. Otherwise, the password is in the message we sent.</p>
+      <form id="gateForm">
+        <label class="sr-only" for="gatePassword">Password</label>
+        <input id="gatePassword" type="password" autocomplete="current-password" placeholder="Password" required>
+        <p class="error hidden" id="gateError"></p>
+        <button class="btn" type="submit" id="gateSubmit" style="margin-top:14px;">Come in</button>
       </form>
-    </section>
-
-    <section id="itemsSection">
-      <div class="section-head">
-        <h2>What it goes toward</h2>
-        <p>Just so you can picture it. Nothing here needs claiming — these are the things on our list.</p>
-      </div>
-      <div class="grid" id="itemGrid"></div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="shell">
-      <p>Thank you, truly. Your company is the real gift.</p>
     </div>
-  </footer>
+  </div>
+
+  <div id="page" class="hidden">
+    <header class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <div class="couple">
+            <img id="couplePhoto" class="hidden" alt="">
+            <div>
+              <p class="couple-sub">A new home, slowly filling up</p>
+              <p class="couple-names" id="coupleNames">Stella &amp; Jia Qi</p>
+            </div>
+          </div>
+
+          <h1 id="headline">Things for the New Nest</h1>
+          <p class="hero-copy" id="subtext"></p>
+          <p class="why" id="whyCash"></p>
+        </div>
+
+        <div class="progress-card">
+          <p class="progress-amount" id="progressAmount">—<small id="progressGoal"></small></p>
+          <div class="bar"><span id="barReceived"></span></div>
+          <p class="progress-meta" id="progressMeta"></p>
+          <p class="friends" id="friends"></p>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <!-- Your own pledge. Shown automatically if this browser remembers you. -->
+      <section id="mineSection" class="hidden">
+        <div class="panel mine">
+          <div class="section-head" style="margin-bottom:12px;">
+            <h2 id="mineTitle">Your pledge</h2>
+            <p id="mineSubtitle"></p>
+          </div>
+          <div id="mineRows"></div>
+          <div id="minePayNow"></div>
+          <p class="hint">
+            <button class="btn-link" type="button" id="forgetMe">Not you? Forget this device</button>
+          </p>
+        </div>
+      </section>
+
+      <section id="pledgeSection">
+        <div class="section-head">
+          <h2>Chip in any amount</h2>
+          <p>Nothing to claim, nothing to buy — pledge whatever feels right and we will do the shopping. You will get an email with the PayNow details straight after.</p>
+        </div>
+
+        <div class="panel">
+          <div class="pledge-layout">
+            <form id="pledgeForm" novalidate>
+              <div class="field">
+                <label for="guestName">Your name</label>
+                <input id="guestName" type="text" autocomplete="name" maxlength="80" required>
+              </div>
+
+              <div class="field">
+                <label for="guestEmail">Email</label>
+                <input id="guestEmail" type="email" autocomplete="email" maxlength="200" required>
+                <p class="hint">Only for your receipt, so you can come back and check on it.</p>
+              </div>
+
+              <div class="field">
+                <label for="amount">Amount (SGD)</label>
+                <div class="chips" id="amountChips"></div>
+                <input id="amount" type="number" min="1" step="1" inputmode="decimal" placeholder="Any amount" required>
+              </div>
+
+              <div class="field">
+                <label for="message">A note for us (optional)</label>
+                <textarea id="message" maxlength="500"></textarea>
+              </div>
+
+              <div class="field">
+                <label class="check">
+                  <input id="hideName" type="checkbox">
+                  <span>Keep my name off the page. We will still know it is you.</span>
+                </label>
+              </div>
+
+              <button class="btn" type="submit" id="pledgeSubmit">Pledge</button>
+              <p class="error hidden" id="pledgeError"></p>
+              <p class="hint">Nothing is charged here. You transfer by PayNow whenever you like.</p>
+            </form>
+
+            <aside class="paynow">
+              <h3>How it works</h3>
+              <ol class="steps">
+                <li>Tell us what you would like to give.</li>
+                <li>We show you a <strong>PayNow QR</strong> and a <strong>reference code</strong>, and email you both.</li>
+                <li>Transfer whenever suits you, with that code in the reference field.</li>
+                <li>Tap <strong>I've sent it</strong> so we know to look out for it.</li>
+                <li>We buy the things and send you photos.</li>
+              </ol>
+            </aside>
+          </div>
+        </div>
+
+        <p class="hint" style="margin-top:18px;">
+          Pledged before, on another phone?
+          <button class="btn-link" type="button" id="showLookup">Email me my link</button>
+        </p>
+
+        <form id="lookupForm" class="panel hidden" style="margin-top:14px;max-width:460px;">
+          <div class="field">
+            <label for="lookupEmail">The email you used</label>
+            <input id="lookupEmail" type="email" autocomplete="email" maxlength="200" required>
+          </div>
+          <button class="btn btn-quiet" type="submit" id="lookupSubmit">Send me the link</button>
+          <p class="hint" id="lookupHint"></p>
+        </form>
+      </section>
+
+      <section id="itemsSection">
+        <div class="section-head">
+          <h2>What it goes toward</h2>
+          <p>Just so you can picture it. Nothing here needs claiming — these are the things on our list.</p>
+        </div>
+        <div class="grid" id="itemGrid"></div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell">
+        <p id="footerLine">Thank you, truly. Your company is the real gift.</p>
+      </div>
+    </footer>
+  </div>
 
   <script>
     /* ------------------------------------------------------------------ *
@@ -503,41 +609,33 @@
      * ------------------------------------------------------------------ */
     var API_URL = "https://script.google.com/macros/s/AKfycbwS7AvMRx9jLvj6rkYbl-Rn6I_MU-nFgIdzvdD5PAHx1KMJOf77MSduqvwHfetwnRi4/exec";
 
-    var MAGIC_TOKEN = (new URLSearchParams(window.location.search).get("t") || "")
-      .replace(/[^A-Za-z0-9-]/g, "")
-      .slice(0, 120);
+    var STORE_KEY = "nest-key";
+    var STORE_TOKEN = "nest-token";
 
-    /**
-     * Apps Script cannot answer a CORS preflight, so requests have to stay
-     * "simple": GET, or POST with Content-Type text/plain. Anything else
-     * (application/json, custom headers) triggers a preflight and fails.
-     */
-    function apiGet(params) {
-      var query = Object.keys(params)
-        .filter(function (key) { return params[key]; })
-        .map(function (key) { return encodeURIComponent(key) + "=" + encodeURIComponent(params[key]); })
-        .join("&");
-      return fetch(API_URL + "?" + query, { method: "GET", redirect: "follow" })
-        .then(function (response) { return response.json(); });
+    var params = new URLSearchParams(window.location.search);
+
+    function clean(value, max) {
+      return String(value || "").replace(/[^A-Za-z0-9-]/g, "").slice(0, max || 120);
     }
 
-    function apiPost(body) {
-      return fetch(API_URL, {
-        method: "POST",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(body),
-      }).then(function (response) { return response.json(); });
+    function remember(name, value) {
+      try { window.localStorage.setItem(name, value); } catch (error) { /* private mode */ }
+    }
+    function recall(name) {
+      try { return window.localStorage.getItem(name) || ""; } catch (error) { return ""; }
+    }
+    function forget(name) {
+      try { window.localStorage.removeItem(name); } catch (error) { /* private mode */ }
     }
 
-    var state = {
-      settings: {},
-      totals: {},
-      items: [],
-      paynow: {},
-      mine: null,
-      lastPledge: null,
-    };
+    // The key rides in the shared link. Once seen, this browser keeps it, so a
+    // friend who bookmarks the bare URL still gets straight in next time.
+    var KEY = clean(params.get("k"), 60) || recall(STORE_KEY);
+    // Same idea for identity: the token from a magic link, or the one we saved
+    // when they pledged on this device.
+    var MAGIC_TOKEN = clean(params.get("t")) || recall(STORE_TOKEN);
+
+    var state = { settings: {}, totals: {}, items: [], paynow: {}, mine: null };
 
     function $(id) { return document.getElementById(id); }
 
@@ -564,24 +662,59 @@
       toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 3600);
     }
 
+    /* ---------- transport ----------
+       Apps Script cannot answer a CORS preflight, so requests stay "simple":
+       GET, or POST with Content-Type text/plain. Anything else fails. */
+
+    function apiGet(query) {
+      var qs = Object.keys(query)
+        .filter(function (name) { return query[name]; })
+        .map(function (name) { return encodeURIComponent(name) + "=" + encodeURIComponent(query[name]); })
+        .join("&");
+      return fetch(API_URL + "?" + qs, { method: "GET", redirect: "follow" })
+        .then(function (response) { return response.json(); });
+    }
+
+    function apiPost(body) {
+      body.k = KEY;
+      return fetch(API_URL, {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(body),
+      }).then(function (response) { return response.json(); });
+    }
+
     /* ---------- rendering ---------- */
 
     function renderSettings() {
       var settings = state.settings || {};
+
+      if (settings.couple_names) $("coupleNames").textContent = settings.couple_names;
+      if (settings.hero_photo_url) {
+        var photo = $("couplePhoto");
+        photo.src = settings.hero_photo_url;
+        photo.alt = settings.couple_names || "";
+        photo.classList.remove("hidden");
+      }
       if (settings.headline) {
         $("headline").textContent = settings.headline;
-        document.title = settings.headline;
+        document.title = settings.headline + (settings.couple_names ? " — " + settings.couple_names : "");
       }
       $("subtext").textContent = settings.subtext || "";
 
+      var why = $("whyCash");
+      if (settings.why_cash) { why.textContent = settings.why_cash; } else { why.classList.add("hidden"); }
+
       if (settings.closed) {
-        $("pledgeSection").innerHTML = '<div class="panel"><p>' + escapeHtml(settings.closed_message || "Pledges are closed.") + "</p></div>";
+        $("pledgeSection").innerHTML = '<div class="panel"><p>'
+          + escapeHtml(settings.closed_message || "Pledges are closed.") + "</p></div>";
+        return;
       }
 
-      var chips = $("amountChips");
-      if (!chips) return;
-      chips.innerHTML = (settings.suggested_amounts || []).map(function (amount) {
-        return '<button class="chip" type="button" aria-pressed="false" data-amount="' + amount + '">' + escapeHtml(money(amount)) + "</button>";
+      $("amountChips").innerHTML = (settings.suggested_amounts || []).map(function (amount) {
+        return '<button class="chip" type="button" aria-pressed="false" data-amount="' + amount + '">'
+          + escapeHtml(money(amount)) + "</button>";
       }).join("");
     }
 
@@ -594,31 +727,35 @@
       $("progressAmount").innerHTML = escapeHtml(money(pledged))
         + "<small>" + (goal ? "of " + escapeHtml(money(goal)) + " we are saving toward" : "pledged so far") + "</small>";
 
-      var pct = goal ? Math.min(100, (pledged / goal) * 100) : (pledged > 0 ? 100 : 0);
-      $("barReceived").style.width = pct + "%";
+      $("barReceived").style.width = (goal ? Math.min(100, (pledged / goal) * 100) : (pledged > 0 ? 100 : 0)) + "%";
 
-      $("metaReceived").textContent = money(received) + " received";
-      $("metaPledged").textContent = Math.max(pledged - received, 0) > 0
-        ? money(pledged - received) + " pledged, on the way"
-        : "";
+      var onTheWay = Math.max(pledged - received, 0);
+      $("progressMeta").textContent = onTheWay > 0
+        ? money(received) + " received · " + money(onTheWay) + " on the way"
+        : money(received) + " received";
 
       var names = totals.names || [];
-      $("friends").textContent = names.length
-        ? names.length + (names.length === 1 ? " friend has" : " friends have") + " chipped in — " + names.join(", ")
-        : "Be the first to chip in.";
+      var count = Number(totals.pledge_count) || 0;
+      if (!count) {
+        $("friends").textContent = "Be the first to chip in.";
+      } else if (names.length) {
+        $("friends").textContent = count + (count === 1 ? " friend has" : " friends have")
+          + " chipped in — " + names.join(", ");
+      } else {
+        $("friends").textContent = count + (count === 1 ? " friend has" : " friends have") + " chipped in.";
+      }
     }
 
     function renderItems() {
-      var grid = $("itemGrid");
       if (!state.items.length) {
         $("itemsSection").classList.add("hidden");
         return;
       }
 
-      grid.innerHTML = state.items.map(function (item) {
+      $("itemGrid").innerHTML = state.items.map(function (item) {
         var art = item.image
           ? '<img src="' + escapeHtml(item.image) + '" alt="" loading="lazy">'
-          : "&#10047;";
+          : '<span class="glyph">&#10047;</span>';
         var detail = item.description || item.reference_title || "";
         return '<article class="card">'
           + '<div class="card-art">' + art + "</div>"
@@ -626,45 +763,43 @@
           + (item.room ? '<p class="card-room">' + escapeHtml(item.room) + "</p>" : "")
           + "<h3>" + escapeHtml(item.name) + "</h3>"
           + (detail ? "<p>" + escapeHtml(detail) + "</p>" : "")
-          + (item.price_sgd ? '<p class="card-room" style="margin-top:8px;color:var(--muted);">' + escapeHtml(item.price_sgd) + "</p>" : "")
           + "</div></article>";
       }).join("");
     }
 
     function payNowHtml(pledge, paynow) {
       var details = paynow || state.paynow || {};
-      var parts = ['<h3>PayNow when you are ready</h3>'];
+      var parts = ["<h3>PayNow when you are ready</h3>", '<ol class="steps">'];
 
-      if (details.number) {
-        parts.push("<p>PayNow to <strong>" + escapeHtml(details.number) + "</strong>"
-          + (details.name ? " (" + escapeHtml(details.name) + ")" : "") + "</p>");
-      }
-      parts.push("<p>Amount: <strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong></p>");
-      parts.push("<p>Put this in the reference field so we know it is you:</p>");
-      parts.push('<div class="reference"><code id="refCode-' + escapeHtml(pledge.pledge_id) + '">'
-        + escapeHtml(pledge.reference_code)
-        + '</code><button class="copy-btn" type="button" data-copy="' + escapeHtml(pledge.reference_code) + '">Copy</button></div>');
+      parts.push("<li>Open your banking app and scan the QR"
+        + (details.number ? ", or PayNow to <strong>" + escapeHtml(details.number) + "</strong>" : "")
+        + (details.name ? " (" + escapeHtml(details.name) + ")" : "") + ".</li>");
+      parts.push("<li>Amount: <strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong>.</li>");
+      parts.push("<li>Paste the code below into the <strong>reference</strong> field — that is how we know it is you.</li>");
+      parts.push("</ol>");
+
+      parts.push('<div class="reference"><code>' + escapeHtml(pledge.reference_code)
+        + '</code><button class="copy-btn" type="button" data-copy="' + escapeHtml(pledge.reference_code)
+        + '">Copy</button></div>');
 
       if (details.qr_image_url) {
         parts.push('<img src="' + escapeHtml(details.qr_image_url) + '" alt="PayNow QR code">');
       }
+      parts.push('<p class="hint">Lost it? It is in your email too.</p>');
       return parts.join("");
     }
 
-    function renderConfirmation(pledge, paynow) {
-      state.lastPledge = pledge;
-      $("pledgeSection").innerHTML = '<div class="section-head">'
-        + "<h2>Thank you, " + escapeHtml((pledge.guest_name || "").split(" ")[0]) + "</h2>"
-        + "<p>Your pledge of <strong>" + escapeHtml(money(pledge.amount_sgd))
-        + "</strong> is noted, and we have emailed you these details too.</p></div>"
-        + '<div class="panel"><div class="paynow">' + payNowHtml(pledge, paynow) + "</div>"
-        + '<p class="hint">Nothing is charged automatically. Transfer whenever you like — we will mark it off and send a thank-you.</p></div>';
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    function statusTag(pledge) {
+      if (pledge.status === "Received") return '<span class="tag tag-received">Received &mdash; thank you</span>';
+      if (pledge.status === "Cancelled") return '<span class="tag tag-cancelled">Cancelled</span>';
+      if (pledge.claims_paid_on) return '<span class="tag tag-sent">You marked this sent</span>';
+      return '<span class="tag">Not sent yet</span>';
     }
 
     function renderMine() {
       var mine = state.mine;
       var section = $("mineSection");
+
       if (!mine || !mine.pledges || !mine.pledges.length) {
         section.classList.add("hidden");
         return;
@@ -672,19 +807,23 @@
 
       section.classList.remove("hidden");
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
-      $("mineSubtitle").textContent = "This page is private to you.";
+      $("mineSubtitle").textContent = "Only you can see this.";
 
       $("mineRows").innerHTML = mine.pledges.map(function (pledge) {
-        var tagClass = pledge.status === "Received" ? "tag tag-received"
-          : pledge.status === "Cancelled" ? "tag tag-cancelled" : "tag";
-        var canCancel = pledge.status === "Pledged";
+        var open = pledge.status === "Pledged";
+        var actions = [];
+        if (open && !pledge.claims_paid_on) {
+          actions.push('<button class="btn" type="button" data-sent="' + escapeHtml(pledge.pledge_id) + '">I\'ve sent it</button>');
+        }
+        if (open) {
+          actions.push('<button class="btn-link" type="button" data-amend="' + escapeHtml(pledge.pledge_id) + '">Change amount</button>');
+          actions.push('<button class="btn-link" type="button" data-cancel="' + escapeHtml(pledge.pledge_id) + '">Cancel</button>');
+        }
+
         return '<div class="pledge-row">'
-          + "<div><strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong> "
-          + '<span class="' + tagClass + '">' + escapeHtml(pledge.status) + "</span>"
+          + "<div><strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong> " + statusTag(pledge)
           + '<p class="hint">Reference ' + escapeHtml(pledge.reference_code) + "</p></div>"
-          + (canCancel
-            ? '<button class="btn-link" type="button" data-cancel="' + escapeHtml(pledge.pledge_id) + '">Cancel this pledge</button>'
-            : "")
+          + '<div class="row-actions">' + actions.join("") + "</div>"
           + "</div>";
       }).join("");
 
@@ -694,15 +833,44 @@
         : "";
     }
 
-    /* ---------- server ---------- */
+    function renderConfirmation(pledge, paynow) {
+      $("pledgeSection").innerHTML = '<div class="section-head">'
+        + "<h2>Thank you, " + escapeHtml((pledge.guest_name || "").split(" ")[0]) + "</h2>"
+        + "<p>Your pledge of <strong>" + escapeHtml(money(pledge.amount_sgd))
+        + "</strong> is noted, and we have emailed you these details too.</p></div>"
+        + '<div class="panel"><div class="paynow">' + payNowHtml(pledge, paynow) + "</div>"
+        + '<p class="hint">Once you have transferred, scroll up and tap <strong>I\'ve sent it</strong> '
+        + "so we know to look out for it.</p></div>";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    /* ---------- loading ---------- */
+
+    function showGate(message) {
+      $("gate").classList.remove("hidden");
+      $("page").classList.add("hidden");
+      if (message) {
+        $("gateError").textContent = message;
+        $("gateError").classList.remove("hidden");
+      }
+    }
 
     function loadRegistry() {
-      apiGet({ api: "registry", t: MAGIC_TOKEN })
+      return apiGet({ api: "registry", t: MAGIC_TOKEN, k: KEY })
         .then(function (response) {
+          if (response && response.locked) {
+            showGate("");
+            return;
+          }
           if (!response || !response.ok) {
             showToast((response && response.error) || "Could not load the page.");
             return;
           }
+
+          $("gate").classList.add("hidden");
+          $("page").classList.remove("hidden");
+          if (KEY) remember(STORE_KEY, KEY);
+
           state.settings = response.registry.settings || {};
           state.totals = response.registry.totals || {};
           state.items = response.registry.items || [];
@@ -712,6 +880,9 @@
             qr_image_url: state.settings.paynow_qr_image_url,
           };
           state.mine = response.my_pledge || null;
+
+          // A token that no longer resolves is a dead bookmark; drop it.
+          if (!state.mine && MAGIC_TOKEN) forget(STORE_TOKEN);
 
           renderSettings();
           renderProgress();
@@ -723,6 +894,33 @@
         });
     }
 
+    /* ---------- events ---------- */
+
+    $("gateForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var button = $("gateSubmit");
+      button.disabled = true;
+      $("gateError").classList.add("hidden");
+
+      apiPost({ action: "unlock", password: $("gatePassword").value.trim() })
+        .then(function (response) {
+          button.disabled = false;
+          if (!response || !response.ok) {
+            $("gateError").textContent = (response && response.error) || "That did not work.";
+            $("gateError").classList.remove("hidden");
+            return;
+          }
+          KEY = response.key;
+          remember(STORE_KEY, KEY);
+          loadRegistry();
+        })
+        .catch(function () {
+          button.disabled = false;
+          $("gateError").textContent = "Could not check that just now.";
+          $("gateError").classList.remove("hidden");
+        });
+    });
+
     $("pledgeForm").addEventListener("submit", function (event) {
       event.preventDefault();
       var button = $("pledgeSubmit");
@@ -730,34 +928,31 @@
       errorBox.classList.add("hidden");
 
       var payload = {
+        action: "pledge",
         guest_name: $("guestName").value.trim(),
         guest_email: $("guestEmail").value.trim(),
         amount_sgd: Number($("amount").value),
         message: $("message").value.trim(),
+        hide_name: $("hideName").checked ? "TRUE" : "",
       };
 
-      if (!payload.guest_name) return fieldError("Please add your name.");
-      if (!/^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(payload.guest_email)) return fieldError("That email does not look right.");
-      if (!isFinite(payload.amount_sgd) || payload.amount_sgd <= 0) return fieldError("Please enter an amount.");
+      if (!payload.guest_name) return fail("Please add your name.");
+      if (!/^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(payload.guest_email)) return fail("That email does not look right.");
+      if (!isFinite(payload.amount_sgd) || payload.amount_sgd <= 0) return fail("Please enter an amount.");
 
       button.disabled = true;
       button.textContent = "Sending…";
 
-      payload.action = "pledge";
       apiPost(payload)
         .then(function (response) {
-          button.disabled = false;
-          button.textContent = "Pledge";
-          if (!response || !response.ok) return fieldError((response && response.error) || "Something went wrong.");
+          if (!response || !response.ok) return fail((response && response.error) || "Something went wrong.");
+          if (response.magic_token) remember(STORE_TOKEN, response.magic_token);
           renderConfirmation(response.pledge, response.paynow);
+          loadRegistry();
         })
-        .catch(function (error) {
-          button.disabled = false;
-          button.textContent = "Pledge";
-          fieldError(error && error.message ? error.message : "Something went wrong.");
-        });
+        .catch(function (error) { fail(error && error.message ? error.message : "Something went wrong."); });
 
-      function fieldError(message) {
+      function fail(message) {
         button.disabled = false;
         button.textContent = "Pledge";
         errorBox.textContent = message;
@@ -773,10 +968,9 @@
     $("lookupForm").addEventListener("submit", function (event) {
       event.preventDefault();
       var button = $("lookupSubmit");
-      var email = $("lookupEmail").value.trim();
       button.disabled = true;
 
-      apiPost({ action: "link", guest_email: email })
+      apiPost({ action: "link", guest_email: $("lookupEmail").value.trim() })
         .then(function (response) {
           button.disabled = false;
           $("lookupHint").textContent = (response && response.message)
@@ -788,43 +982,12 @@
         });
     });
 
-    document.addEventListener("click", function (event) {
-      var chip = event.target.closest ? event.target.closest(".chip") : null;
-      if (chip) {
-        document.querySelectorAll(".chip").forEach(function (other) {
-          other.setAttribute("aria-pressed", String(other === chip));
-        });
-        $("amount").value = chip.dataset.amount;
-        return;
-      }
-
-      var copy = event.target.closest ? event.target.closest("[data-copy]") : null;
-      if (copy) {
-        copyText(copy.dataset.copy);
-        return;
-      }
-
-      var cancel = event.target.closest ? event.target.closest("[data-cancel]") : null;
-      if (cancel) {
-        if (!window.confirm("Cancel this pledge?")) return;
-        cancel.disabled = true;
-        apiPost({ action: "cancel", magic_token: MAGIC_TOKEN, pledge_id: cancel.dataset.cancel })
-          .then(function (response) {
-            if (!response || !response.ok) {
-              showToast((response && response.error) || "Could not cancel that.");
-              cancel.disabled = false;
-              return;
-            }
-            state.mine = response.my_pledge;
-            renderMine();
-            showToast("Cancelled. No hard feelings.");
-            loadRegistry();
-          })
-          .catch(function (error) {
-            cancel.disabled = false;
-            showToast(error && error.message ? error.message : "Could not cancel that.");
-          });
-      }
+    $("forgetMe").addEventListener("click", function () {
+      forget(STORE_TOKEN);
+      MAGIC_TOKEN = "";
+      state.mine = null;
+      renderMine();
+      showToast("Forgotten on this device.");
     });
 
     $("amount").addEventListener("input", function () {
@@ -833,13 +996,75 @@
       });
     });
 
+    document.addEventListener("click", function (event) {
+      var target = event.target.closest ? event.target : null;
+      if (!target) return;
+
+      var chip = target.closest(".chip");
+      if (chip) {
+        document.querySelectorAll(".chip").forEach(function (other) {
+          other.setAttribute("aria-pressed", String(other === chip));
+        });
+        $("amount").value = chip.dataset.amount;
+        return;
+      }
+
+      var copy = target.closest("[data-copy]");
+      if (copy) { copyText(copy.dataset.copy); return; }
+
+      var sent = target.closest("[data-sent]");
+      if (sent) {
+        sent.disabled = true;
+        mutate({ action: "sent", magic_token: MAGIC_TOKEN, pledge_id: sent.dataset.sent },
+          "Thank you — we will look out for it.", sent);
+        return;
+      }
+
+      var amend = target.closest("[data-amend]");
+      if (amend) {
+        var next = window.prompt("What would you like to change it to? (SGD)");
+        if (next === null) return;
+        var amount = Number(String(next).replace(/[^0-9.]/g, ""));
+        if (!isFinite(amount) || amount <= 0) { showToast("That is not an amount we can use."); return; }
+        amend.disabled = true;
+        mutate({ action: "amend", magic_token: MAGIC_TOKEN, pledge_id: amend.dataset.amend, amount_sgd: amount },
+          "Updated. Your reference code stays the same.", amend);
+        return;
+      }
+
+      var cancel = target.closest("[data-cancel]");
+      if (cancel) {
+        if (!window.confirm("Cancel this pledge?")) return;
+        cancel.disabled = true;
+        mutate({ action: "cancel", magic_token: MAGIC_TOKEN, pledge_id: cancel.dataset.cancel },
+          "Cancelled. No hard feelings.", cancel);
+      }
+    });
+
+    function mutate(body, successMessage, button) {
+      apiPost(body)
+        .then(function (response) {
+          if (!response || !response.ok) {
+            showToast((response && response.error) || "That did not work.");
+            if (button) button.disabled = false;
+            return;
+          }
+          state.mine = response.my_pledge;
+          renderMine();
+          showToast(successMessage);
+          loadRegistry();
+        })
+        .catch(function (error) {
+          if (button) button.disabled = false;
+          showToast(error && error.message ? error.message : "That did not work.");
+        });
+    }
+
     function copyText(text) {
-      // navigator.clipboard is unavailable in some in-app browsers, so fall
-      // back to a hidden textarea before giving up.
+      // navigator.clipboard is missing in some in-app browsers, so fall back
+      // to a hidden textarea before giving up.
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () {
-          showToast("Reference copied");
-        }, legacyCopy);
+        navigator.clipboard.writeText(text).then(function () { showToast("Reference copied"); }, legacyCopy);
         return;
       }
       legacyCopy();

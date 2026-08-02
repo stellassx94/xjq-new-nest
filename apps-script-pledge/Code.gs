@@ -63,6 +63,11 @@ const PLEDGE_COLUMNS = [
   'token_expires',
   'source',
   'notes',
+  // A friend saying "I've sent it" is a claim, not a confirmation. It lives in
+  // its own column and never touches `status`, which only the owner sets from
+  // the bank statement.
+  'claims_paid_on',
+  'hide_name',
 ];
 
 const PLEDGE_DASHBOARD_COLUMNS = [
@@ -71,6 +76,7 @@ const PLEDGE_DASHBOARD_COLUMNS = [
   'Pledged SGD',
   'Status',
   'Reference',
+  'Says Paid',
   'Days Outstanding',
   'Received On',
   'Received SGD',
@@ -88,6 +94,10 @@ const PLEDGE_CONFIG_DEFAULTS = [
   ['paynow_qr_image_url', '', 'Public https:// link to your PayNow QR image. Leave blank to hide the QR.'],
   ['owner_email', '', 'Where owner notifications go. Blank = the account running the script.'],
   ['site_url', '', 'Public site address, e.g. https://stellassx94.github.io/xjq-new-nest/. Magic links in emails point here. Blank falls back to the raw Apps Script URL.'],
+  ['couple_names', 'Stella & Jia Qi', 'Shown above the headline. Without this the page reads like a scam to anyone opening it cold.'],
+  ['hero_photo_url', '', 'Optional public https:// link to a photo of the two of you. Nothing shows if blank.'],
+  ['why_cash', 'We are still figuring out what the place needs, so we would rather buy things slowly and properly than end up with three kettles. If you would like to give something, this is the easiest way.', 'One or two sentences in your own voice about why money rather than things.'],
+  ['site_password', 'xjq-bishan', 'Password for the page. The link you share carries it, so friends never see a login. Blank = no password at all.'],
   ['page_headline', 'Things for the New Nest', 'Big title on the page.'],
   ['page_subtext', 'Your company is the real gift. But if you would like to chip in toward the new place, here is the easiest way.', 'Warm line under the title.'],
   ['suggested_amounts', '50, 100, 200, 388', 'Comma-separated preset amounts on the pledge form.'],
@@ -109,7 +119,7 @@ function doGet(event) {
   const params = event && event.parameter ? event.parameter : {};
 
   if (params.api === 'registry') {
-    return json_(getRegistryDataForClient(params.t));
+    return json_(getRegistryDataForClient(params.t, params.k));
   }
 
   if (params.api === 'me') {
@@ -148,6 +158,9 @@ function doPost(event) {
     if (action === 'link') return json_(requestPledgeLinkForClient(body.guest_email));
     if (action === 'me') return json_(getMyPledgeForClient(body.magic_token));
     if (action === 'cancel') return json_(cancelPledgeForClient(body.magic_token, body.pledge_id));
+    if (action === 'amend') return json_(amendPledgeForClient(body.magic_token, body.pledge_id, body.amount_sgd));
+    if (action === 'sent') return json_(markPledgeSentForClient(body.magic_token, body.pledge_id));
+    if (action === 'unlock') return json_(unlockForClient(body.password));
 
     return json_({ ok: false, error: 'Unknown action.' });
   } catch (error) {
@@ -160,14 +173,55 @@ function doPost(event) {
  * google.script.run, and from the static site via doGet/doPost above.
  * Everything else in this file ends with `_` so it stays private.
  */
-function getRegistryDataForClient(magicToken) {
+function getRegistryDataForClient(magicToken, key) {
   try {
+    if (!keyMatches_(key)) {
+      return { ok: false, locked: true, error: 'This page is for our friends. Please use the link we sent you.' };
+    }
     return {
       ok: true,
       generated_at: new Date().toISOString(),
       registry: getPublicRegistryPayload_(),
       my_pledge: magicToken ? lookupPledgeByToken_(magicToken) : null,
     };
+  } catch (error) {
+    return { ok: false, error: publicError_(error) };
+  }
+}
+
+/**
+ * The password is checked here, never in the page, so it is not in the public
+ * source. The shared link carries it as ?k=, so invited friends never meet a
+ * login screen; only someone who finds the bare URL does.
+ */
+function keyMatches_(key) {
+  const expected = pledgeConfigValue_('site_password');
+  if (!expected) return true;
+  return cleanString_(key) === expected;
+}
+
+function unlockForClient(password) {
+  try {
+    if (!keyMatches_(password)) {
+      return { ok: false, error: 'That is not the password. Check the link we sent you.' };
+    }
+    return { ok: true, key: pledgeConfigValue_('site_password') };
+  } catch (error) {
+    return { ok: false, error: publicError_(error) };
+  }
+}
+
+function amendPledgeForClient(magicToken, pledgeId, amount) {
+  try {
+    return amendPledge_(magicToken, pledgeId, amount);
+  } catch (error) {
+    return { ok: false, error: publicError_(error) };
+  }
+}
+
+function markPledgeSentForClient(magicToken, pledgeId) {
+  try {
+    return markPledgeSent_(magicToken, pledgeId);
   } catch (error) {
     return { ok: false, error: publicError_(error) };
   }
@@ -351,6 +405,8 @@ function normalizePledge_(pledge) {
     token_expires: pledge.token_expires instanceof Date ? pledge.token_expires.toISOString() : cleanString_(pledge.token_expires),
     source: cleanString_(pledge.source),
     notes: cleanString_(pledge.notes),
+    claims_paid_on: pledge.claims_paid_on instanceof Date ? pledge.claims_paid_on.toISOString() : cleanString_(pledge.claims_paid_on),
+    hide_name: parseBoolean_(pledge.hide_name) === true && cleanString_(pledge.hide_name) !== '',
   };
 }
 
@@ -384,6 +440,9 @@ function getPublicRegistryPayload_() {
   return {
     items,
     settings: {
+      couple_names: config.couple_names,
+      hero_photo_url: safePublicUrl_(config.hero_photo_url),
+      why_cash: config.why_cash,
       headline: config.page_headline,
       subtext: config.page_subtext,
       goal_sgd: Number(numericAmount_(config.goal_sgd)) || 0,
@@ -398,8 +457,11 @@ function getPublicRegistryPayload_() {
       pledged_sgd: pledged,
       received_sgd: received,
       pledge_count: pledges.length,
-      // First names only. Amounts are never attributed publicly.
-      names: pledges.map((pledge) => firstName_(pledge.guest_name)).filter(Boolean),
+      // First names only, and only from people who did not opt out.
+      // Amounts are never attributed publicly.
+      names: pledges.filter((pledge) => !pledge.hide_name)
+        .map((pledge) => firstName_(pledge.guest_name))
+        .filter(Boolean),
     },
   };
 }
@@ -447,6 +509,7 @@ function firstName_(value) {
 
 function submitPledge_(body) {
   setupPledgeSheets_();
+  if (!keyMatches_(body.k)) throw new Error('This page is for our friends. Please use the link we sent you.');
   const config = pledgeConfig_();
   if (parseBoolean_(config.closed) === true && cleanString_(config.closed) !== '') {
     throw new Error(cleanString_(config.closed_message) || 'Pledges are closed.');
@@ -490,6 +553,8 @@ function submitPledge_(body) {
       token_expires: expires,
       source: 'web',
       notes: '',
+      claims_paid_on: '',
+      hide_name: parseBoolean_(body.hide_name) === true && cleanString_(body.hide_name) !== '' ? 'TRUE' : '',
     };
 
     // Reuse one token per email so an older link keeps working for this guest.
@@ -513,6 +578,9 @@ function submitPledge_(body) {
       ok: true,
       pledge: publicPledgeView_(record),
       paynow: paynowPayload_(config),
+      // Handed back so the browser can remember them and show this pledge on
+      // their next visit without an emailed link.
+      magic_token: record.magic_token,
     };
   } finally {
     lock.releaseLock();
@@ -574,33 +642,93 @@ function lookupPledgeByToken_(magicToken) {
 
 function cancelPledge_(magicToken, pledgeId) {
   setupPledgeSheets_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const found = pledgeForToken_(magicToken, pledgeId);
+    if (found.pledge.status === 'Received') {
+      throw new Error('This one is already marked as received. Message us directly and we will sort it out.');
+    }
+
+    const headers = pledgeHeaderIndex_(found.sheet);
+    found.sheet.getRange(found.rowNumber, headers.status + 1).setValue('Cancelled');
+    refreshPledgeDashboard_();
+
+    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Shared guard for every friend-initiated change. Resolves the pledge from its
+ * id, proves the caller holds the matching unexpired token, and hands back the
+ * sheet row number so the caller can write to it.
+ */
+function pledgeForToken_(magicToken, pledgeId) {
   const token = cleanString_(magicToken);
   const id = cleanString_(pledgeId);
   if (!token || !id) throw new Error('That link is not valid any more.');
 
+  const pledge = readPledges_().find((candidate) => candidate.pledge_id === id);
+  if (!pledge) throw new Error('We could not find that pledge.');
+
+  const expires = Date.parse(pledge.token_expires);
+  if (pledge.magic_token !== token || (isFinite(expires) && expires <= Date.now())) {
+    throw new Error('That link has expired. Ask for a new one below.');
+  }
+
+  const rowNumber = pledgeRowNumbersById_()[pledge.pledge_id];
+  if (!rowNumber) throw new Error('We could not find that pledge.');
+
+  return { pledge, rowNumber, sheet: getSheet_(REGISTRY_CONFIG.pledgesSheet) };
+}
+
+function amendPledge_(magicToken, pledgeId, amount) {
+  setupPledgeSheets_();
+  const newAmount = Number(amount);
+  if (!isFinite(newAmount) || newAmount <= 0) throw new Error('Please enter an amount greater than zero.');
+  if (newAmount > 100000) throw new Error('That amount looks like a typo. Please check it.');
+
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const pledges = readPledges_();
-    const pledge = pledges.find((candidate) => candidate.pledge_id === id);
-    if (!pledge) throw new Error('We could not find that pledge.');
-
-    const expires = Date.parse(pledge.token_expires);
-    if (pledge.magic_token !== token || (isFinite(expires) && expires <= Date.now())) {
-      throw new Error('That link has expired. Request a new one.');
+    const found = pledgeForToken_(magicToken, pledgeId);
+    if (found.pledge.status === 'Received') {
+      throw new Error('This one is already marked as received, so we cannot change it here. Message us and we will sort it out.');
     }
-    if (pledge.status === 'Received') {
-      throw new Error('This one is already marked as received. Message us directly and we will sort it out.');
-    }
+    if (found.pledge.status === 'Cancelled') throw new Error('This pledge was cancelled.');
 
-    const sheet = getSheet_(REGISTRY_CONFIG.pledgesSheet);
-    const headers = pledgeHeaderIndex_(sheet);
-    const rowNumber = pledgeRowNumbersById_()[pledge.pledge_id];
-    if (!rowNumber) throw new Error('We could not find that pledge.');
-    sheet.getRange(rowNumber, headers.status + 1).setValue('Cancelled');
+    const headers = pledgeHeaderIndex_(found.sheet);
+    found.sheet.getRange(found.rowNumber, headers.amount_sgd + 1).setValue(Math.round(newAmount * 100) / 100);
+    // Changing the amount invalidates any "I've sent it" claim against the old one.
+    found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue('');
     refreshPledgeDashboard_();
 
-    return { ok: true, my_pledge: lookupPledgeByToken_(token) };
+    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * A friend telling us they have transferred. This is a claim, not a
+ * confirmation — it only nudges the owner to go and look at the bank. The
+ * authoritative `status` column is never touched here.
+ */
+function markPledgeSent_(magicToken, pledgeId) {
+  setupPledgeSheets_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const found = pledgeForToken_(magicToken, pledgeId);
+    if (found.pledge.status === 'Cancelled') throw new Error('This pledge was cancelled.');
+
+    const headers = pledgeHeaderIndex_(found.sheet);
+    found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue(new Date().toISOString());
+    refreshPledgeDashboard_();
+
+    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
   } finally {
     lock.releaseLock();
   }
@@ -614,6 +742,7 @@ function publicPledgeView_(pledge) {
     message: cleanString_(pledge.message),
     reference_code: cleanString_(pledge.reference_code),
     status: pledgeStatus_(pledge.status),
+    claims_paid_on: cleanString_(pledge.claims_paid_on),
     pledged_on: pledge.timestamp instanceof Date ? pledge.timestamp.toISOString() : cleanString_(pledge.timestamp),
   };
 }
@@ -642,6 +771,7 @@ function refreshPledgeDashboard_() {
   const goal = Number(numericAmount_(config.goal_sgd)) || 0;
   const guests = new Set(live.map((pledge) => pledge.guest_email).filter(Boolean));
   const unthanked = receivedRows.filter((pledge) => !pledge.thanked_on).length;
+  const awaitingCheck = live.filter((pledge) => pledge.status === 'Pledged' && pledge.claims_paid_on).length;
 
   sheet.clear();
   sheet.getRange(1, 1, 1, 7).setValues([[
@@ -658,9 +788,10 @@ function refreshPledgeDashboard_() {
   ]]);
   sheet.getRange(2, 1, 1, 4).setNumberFormat('$#,##0.00');
   sheet.getRange(2, 5).setNumberFormat('0%');
-  sheet.getRange(3, 1).setValue(unthanked
-    ? unthanked + ' received pledge(s) still waiting on a thank-you.'
-    : 'All received pledges have been thanked.');
+  const notes = [];
+  if (awaitingCheck) notes.push(awaitingCheck + ' say they have sent it \u2014 check your bank (blue rows).');
+  if (unthanked) notes.push(unthanked + ' received pledge(s) still waiting on a thank-you.');
+  sheet.getRange(3, 1).setValue(notes.length ? notes.join('  \u00b7  ') : 'Nothing waiting on you.');
 
   sheet.getRange(4, 1, 1, PLEDGE_DASHBOARD_COLUMNS.length)
     .setValues([PLEDGE_DASHBOARD_COLUMNS])
@@ -681,6 +812,7 @@ function refreshPledgeDashboard_() {
         pledge.amount_sgd || '',
         pledge.status,
         pledge.reference_code,
+        pledge.claims_paid_on ? formatDate_(pledge.claims_paid_on) : '',
         days,
         formatDate_(pledge.received_on),
         pledge.received_amount_sgd,
@@ -693,7 +825,7 @@ function refreshPledgeDashboard_() {
   if (rows.length) {
     sheet.getRange(5, 1, rows.length, PLEDGE_DASHBOARD_COLUMNS.length).setValues(rows);
     sheet.getRange(5, 3, rows.length, 1).setNumberFormat('$#,##0.00');
-    sheet.getRange(5, 8, rows.length, 1).setNumberFormat('$#,##0.00');
+    sheet.getRange(5, 9, rows.length, 1).setNumberFormat('$#,##0.00');
   }
 
   sheet.setFrozenRows(4);
@@ -712,8 +844,15 @@ function applyPledgeDashboardFormatting_(sheet, rowCount) {
     .setBackground('#e6f4ea')
     .setRanges([range])
     .build();
+  // Blue = they say they have sent it, you have not confirmed it in the bank.
+  // Deliberately a different colour from Received so the two never blur.
+  const claimsPaid = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=AND($D5="Pledged",$F5<>"")')
+    .setBackground('#e3f0fb')
+    .setRanges([range])
+    .build();
   const chasing = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=AND($D5="Pledged",$F5>7)')
+    .whenFormulaSatisfied('=AND($D5="Pledged",$F5="",$G5>7)')
     .setBackground('#fef7e0')
     .setRanges([range])
     .build();
@@ -723,7 +862,7 @@ function applyPledgeDashboardFormatting_(sheet, rowCount) {
     .setRanges([range])
     .build();
 
-  sheet.setConditionalFormatRules([received, chasing, cancelled]);
+  sheet.setConditionalFormatRules([received, claimsPaid, chasing, cancelled]);
 }
 
 function formatDate_(value) {
@@ -825,6 +964,7 @@ function resendConfirmationForSelectedRow_() {
 function sendPledgeConfirmationEmail_(pledge, config) {
   const settings = config || pledgeConfig_();
   const headline = cleanString_(settings.page_headline) || 'Things for the New Nest';
+  const from = cleanString_(settings.couple_names) || headline;
   const link = magicLinkUrl_(pledge.magic_token);
 
   const body = emailShell_(headline, [
@@ -842,12 +982,14 @@ function sendPledgeConfirmationEmail_(pledge, config) {
     body: 'Thank you. Pledge: ' + moneyText_(pledge.amount_sgd)
       + '. PayNow reference: ' + pledge.reference_code
       + (link ? '. Manage your pledge: ' + link : ''),
-    name: headline,
+    name: from,
   });
 }
 
 function sendMagicLinkEmail_(guestName, email, token, pledges) {
-  const headline = pledgeConfigValue_('page_headline') || 'Things for the New Nest';
+  const settings = pledgeConfig_();
+  const headline = cleanString_(settings.page_headline) || 'Things for the New Nest';
+  const from = cleanString_(settings.couple_names) || headline;
   const link = magicLinkUrl_(token);
   const rows = pledges.map((pledge) => '<li>' + moneyText_(pledge.amount_sgd)
     + ' — ' + escapeHtmlForEmail_(pledge.status)
@@ -864,13 +1006,14 @@ function sendMagicLinkEmail_(guestName, email, token, pledges) {
       '<p style="color:#6b7a6e;font-size:13px;">This link is private to you and works for ' + PLEDGE_TOKEN_TTL_DAYS + ' days.</p>',
     ]),
     body: 'Your pledge page: ' + link,
-    name: headline,
+    name: from,
   });
 }
 
 function sendThankYouEmail_(pledge, config) {
   const settings = config || pledgeConfig_();
   const headline = cleanString_(settings.page_headline) || 'Things for the New Nest';
+  const from = cleanString_(settings.couple_names) || headline;
   const extra = cleanString_(settings.thank_you_message);
 
   MailApp.sendEmail({
@@ -881,9 +1024,10 @@ function sendThankYouEmail_(pledge, config) {
       '<p>Your gift of <strong>' + moneyText_(countedAmount_(pledge)) + '</strong> has come through. Thank you, genuinely.</p>',
       extra ? '<p>' + escapeHtmlForEmail_(extra) + '</p>' : '',
       '<p>Come over and see what it turned into.</p>',
+      '<p>' + escapeHtmlForEmail_(from) + '</p>',
     ]),
     body: 'Thank you for your gift of ' + moneyText_(countedAmount_(pledge)) + '.',
-    name: headline,
+    name: from,
   });
 }
 
@@ -919,9 +1063,14 @@ function magicLinkUrl_(token) {
   const cleanToken = cleanString_(token);
   if (!cleanToken) return '';
 
-  const site = safePublicUrl_(pledgeConfigValue_('site_url'));
+  const config = pledgeConfig_();
+  const site = safePublicUrl_(config.site_url);
   if (site) {
-    return site.replace(/[?#].*$/, '').replace(/\/+$/, '') + '/?t=' + encodeURIComponent(cleanToken);
+    // Carry the page key too, so the link opens straight in with no password.
+    const key = cleanString_(config.site_password);
+    return site.replace(/[?#].*$/, '').replace(/\/+$/, '')
+      + '/?t=' + encodeURIComponent(cleanToken)
+      + (key ? '&k=' + encodeURIComponent(key) : '');
   }
 
   try {

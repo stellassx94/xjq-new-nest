@@ -16,6 +16,7 @@ Spreadsheet: `Bishan Renovation`
 | Tab | What it is | Do you touch it? |
 |---|---|---|
 | `Pledges` | Append-only log — one row per pledge. **This is the source of truth.** | Only the `status`, `received_on`, `received_amount_sgd`, `notes` columns |
+| `claims_paid_on` (in `Pledges`) | A friend saying "I've sent it". A claim, never a confirmation — it never sets `status` | Read only |
 | `Pledge Dashboard` | Regenerated owner view: totals at the top, one row per pledge below | Read only — it gets rebuilt |
 | `Pledge Config` | Key/value settings for the public page | Yes, this is your control panel |
 | `Registry Items` | Feeds the browse-only inspiration grid | Via `Paste Links Here` as before |
@@ -33,7 +34,11 @@ Spreadsheet: `Bishan Renovation`
 | `paynow_qr_image_url` | Public `https://` link to your QR image. Blank hides the QR |
 | `page_headline` / `page_subtext` | The big title and the warm line under it |
 | `suggested_amounts` | Comma-separated preset chips, e.g. `50, 100, 200, 388` |
-| `site_url` | `https://stellassx94.github.io/xjq-new-nest/` — makes magic links in emails point at the nice URL instead of the raw script one |
+| `site_url` | `https://stellassx94.github.io/xjq-new-nest/` — magic links in emails point here |
+| `couple_names` | "Stella & Jia Qi", shown above the headline |
+| `hero_photo_url` | Optional photo of the two of you |
+| `why_cash` | One or two sentences in your own voice. **Worth editing** — this is the warmest thing on the page |
+| `site_password` | `xjq-bishan`. The link you share carries it, so friends never see a login |
 | `closed` | `TRUE` stops new pledges and shows `closed_message` |
 | `thank_you_message` | Optional extra line in thank-you emails |
 
