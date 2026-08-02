@@ -72,7 +72,7 @@ The page never shows who gave how much — only first names and a count.
 
 **Then fill in your details.**
 
-6. Export your PayNow QR from your banking app. Put it somewhere with a public `https://` URL (Drive shared "anyone with the link", or any image host) and paste that URL into `paynow_qr_image_url`.
+6. Set `paynow_qr_image_url` to `https://stellassx94.github.io/new-nest/paynow.jpg` — your QR is already hosted there.
 7. Fill in `goal_sgd`, `paynow_number`, `paynow_name`, and the headline copy.
 8. Open https://stellassx94.github.io/new-nest/ and make one test pledge to yourself before sharing it. Then set that row's `status` to `Cancelled`.
 
