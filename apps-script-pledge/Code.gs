@@ -87,7 +87,7 @@ const PLEDGE_CONFIG_DEFAULTS = [
   ['paynow_name', '', 'Name that shows up in their banking app, so they know the transfer is right.'],
   ['paynow_qr_image_url', '', 'Public https:// link to your PayNow QR image. Leave blank to hide the QR.'],
   ['owner_email', '', 'Where owner notifications go. Blank = the account running the script.'],
-  ['site_url', '', 'Public site address, e.g. https://stellassx94.github.io/new-nest/. Magic links in emails point here. Blank falls back to the raw Apps Script URL.'],
+  ['site_url', '', 'Public site address, e.g. https://stellassx94.github.io/xjq-new-nest/. Magic links in emails point here. Blank falls back to the raw Apps Script URL.'],
   ['page_headline', 'Things for the New Nest', 'Big title on the page.'],
   ['page_subtext', 'Your company is the real gift. But if you would like to chip in toward the new place, here is the easiest way.', 'Warm line under the title.'],
   ['suggested_amounts', '50, 100, 200, 388', 'Comma-separated preset amounts on the pledge form.'],

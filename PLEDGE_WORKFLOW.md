@@ -4,7 +4,7 @@ Friends pledge any amount into one pot. You buy the items yourself.
 
 Two pieces:
 
-- **The page** your friends see — `docs/index.html`, served free at **https://stellassx94.github.io/new-nest/** from the `stellassx94/new-nest` repo.
+- **The page** your friends see — `docs/index.html`, served free at **https://stellassx94.github.io/xjq-new-nest/** from the `stellassx94/xjq-new-nest` repo.
 - **The backend** — `apps-script-pledge/`, a Google Apps Script bound to the `Bishan Renovation` spreadsheet. Holds the data, sends the emails.
 
 The page calls the script as a JSON API. The older item-claiming build is untouched in `apps-script/` (git-ignored, local only) — keep it until this one works, then it can go.
@@ -33,7 +33,7 @@ Spreadsheet: `Bishan Renovation`
 | `paynow_qr_image_url` | Public `https://` link to your QR image. Blank hides the QR |
 | `page_headline` / `page_subtext` | The big title and the warm line under it |
 | `suggested_amounts` | Comma-separated preset chips, e.g. `50, 100, 200, 388` |
-| `site_url` | `https://stellassx94.github.io/new-nest/` — makes magic links in emails point at the nice URL instead of the raw script one |
+| `site_url` | `https://stellassx94.github.io/xjq-new-nest/` — makes magic links in emails point at the nice URL instead of the raw script one |
 | `closed` | `TRUE` stops new pledges and shows `closed_message` |
 | `thank_you_message` | Optional extra line in thank-you emails |
 
@@ -51,7 +51,7 @@ The page never shows who gave how much — only first names and a count.
 
 **Reconciling (the only recurring chore).** Open your bank transaction list, match the reference code in each transfer to the row in `Pledges`, and set `status` to `Received`. Fill `received_amount_sgd` only if they sent a different amount from what they pledged. The dashboard and public progress bar follow automatically.
 
-**Thanking.** `New Nest Registry` → `Send thank-you emails`. It emails everyone marked `Received` who hasn't been thanked yet, then stamps `thanked_on` so nobody gets thanked twice. Gmail caps at ~100 emails/day; it sends 40 per run and tells you how many are left.
+**Thanking.** `New Nest Pledges` → `Send thank-you emails`. It emails everyone marked `Received` who hasn't been thanked yet, then stamps `thanked_on` so nobody gets thanked twice. Gmail caps at ~100 emails/day; it sends 40 per run and tells you how many are left.
 
 **Chasing.** The dashboard highlights anything still `Pledged` after 7 days in amber. There is no auto-nudge — a personal message lands better anyway.
 
@@ -69,7 +69,7 @@ Already done: script pushed and deployed, web app created, `Pledges` / `Pledge C
 
 2. **Fill in two blanks** in `Pledge Config`: `paynow_number` and `paynow_name`. The QR alone works, but showing the number reassures people they are paying the right person.
 
-Then open https://stellassx94.github.io/new-nest/, make one test pledge to yourself, check the email arrives, and set that row's `status` to `Cancelled`.
+Then open https://stellassx94.github.io/xjq-new-nest/, make one test pledge to yourself, check the email arrives, and set that row's `status` to `Cancelled`.
 
 ## Changing the code later
 
@@ -85,13 +85,13 @@ git add -A && git commit -m "..." && git push
 
 Live in about a minute. No Apps Script deploy needed for page-only changes.
 
-## Automation already running
+## Automation
 
-- Installable edit trigger on `Housewarming/Later Appliances` and `Paste Links Here`.
-- 15-minute trigger that scrapes new links, syncs items, and rebuilds the dashboard.
-- The dashboard also rebuilds after every pledge, cancellation, and thank-you run.
+The pledge script has no triggers. The dashboard rebuilds itself after every pledge, cancellation, and thank-you run.
 
-Manual refresh: `New Nest Registry` → `Refresh pledge dashboard`.
+Item scraping still belongs to the **older** registry script bound to the same spreadsheet — its edit trigger and 15-minute trigger keep `Registry Items` fresh. The pledge script only reads that tab, and shrugs off failures there so the pledge form keeps working regardless.
+
+Manual refresh: `New Nest Pledges` → `Refresh pledge dashboard`.
 
 ## Notes
 
@@ -104,8 +104,8 @@ Manual refresh: `New Nest Registry` → `Refresh pledge dashboard`.
 
 | | |
 |---|---|
-| Share this with friends | https://stellassx94.github.io/new-nest/ |
-| Repo | https://github.com/stellassx94/new-nest |
+| Share this with friends | https://stellassx94.github.io/xjq-new-nest/ |
+| Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
 | Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbwS7AvMRx9jLvj6rkYbl-Rn6I_MU-nFgIdzvdD5PAHx1KMJOf77MSduqvwHfetwnRi4/exec` |
