@@ -199,9 +199,55 @@
       font-size: 0.86rem;
     }
 
+    /* ---------- sticky section nav ---------- */
+
+    .subnav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      border-bottom: 1px solid var(--line);
+      background: rgba(251, 248, 242, 0.92);
+      backdrop-filter: blur(8px);
+    }
+
+    .subnav-inner {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Scrolls sideways on a narrow phone rather than stacking into two rows. */
+    .subnav-links {
+      display: flex;
+      gap: 22px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .subnav-links::-webkit-scrollbar { display: none; }
+
+    .subnav a {
+      padding: 13px 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 650;
+      text-decoration: none;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+    }
+    .subnav a:hover { color: var(--green); border-bottom-color: var(--line); }
+    .subnav a:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+
+    .subnav-wa { color: var(--clay) !important; }
+
     /* ---------- sections ---------- */
 
-    section { padding: clamp(34px, 5vw, 60px) 0; }
+    /*
+      Keeps a heading from landing underneath the sticky bar when you jump
+      to it. Must exceed the bar's height.
+    */
+    section { padding: clamp(34px, 5vw, 60px) 0; scroll-margin-top: 58px; }
     .section-head { max-width: 620px; margin-bottom: 24px; }
     .section-head h2 {
       font-family: var(--serif);
@@ -587,6 +633,22 @@
       </div>
     </header>
 
+    <!--
+      The page is one long scroll on a phone. Without this you cannot get back
+      to your own pledge without swiping past everything.
+    -->
+    <nav class="subnav" aria-label="Sections">
+      <div class="shell subnav-inner">
+        <div class="subnav-links">
+          <a href="#mineSection" id="navMine" class="hidden">Your pledge</a>
+          <a href="#returnSection" id="navReturn" class="hidden">Pledged already?</a>
+          <a href="#pledgeSection" id="navPledge">Chip in</a>
+          <a href="#itemsSection">What it goes toward</a>
+        </div>
+        <a class="subnav-wa hidden" id="navWhatsApp" target="_blank" rel="noopener noreferrer">Message us</a>
+      </div>
+    </nav>
+
     <main class="shell">
       <!-- Your own pledge. Shown automatically if this browser remembers you. -->
       <section id="mineSection" class="hidden">
@@ -927,11 +989,17 @@
         // We do not know this visitor. Offer the way back in rather than
         // silently showing them a blank pledge form they have already filled.
         recall.classList.remove("hidden");
+        // A nav link pointing at a hidden section scrolls nowhere, so the
+        // links follow the sections rather than being merely greyed out.
+        $("navMine").classList.add("hidden");
+        $("navReturn").classList.remove("hidden");
         return;
       }
 
       recall.classList.add("hidden");
       section.classList.remove("hidden");
+      $("navReturn").classList.add("hidden");
+      $("navMine").classList.remove("hidden");
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
 
       var open = mine.pledges.filter(function (pledge) { return pledge.status === "Pledged"; });
