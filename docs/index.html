@@ -362,6 +362,21 @@
     }
 
     .pledge-row:last-of-type { border-bottom: 0; }
+
+    /* Holds the height of a real pledge row so nothing jumps when the answer
+       arrives and this is replaced. */
+    .skeleton-row {
+      display: block;
+      height: 54px;
+      border-radius: 6px;
+      background: var(--soft);
+      border-bottom: 0;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 50% { opacity: 0.45; } }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton-row { animation: none; }
+    }
     .pledge-row strong { font-size: 1.5rem; color: var(--ink); }
     .row-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 
@@ -840,6 +855,13 @@
     // in flight when it changed must not overwrite the newer local state.
     var MINE_VERSION = 0;
 
+    // Until the first live answer lands we do not yet know whether this is a
+    // returning friend. Showing "Pledged already?" during those 2-3s tells
+    // someone we have forgotten them and then takes it back, which reads as a
+    // bug rather than as loading. Nothing about identity is drawn until this
+    // is true, unless the device already gave us an answer to draw.
+    var FIRST_LOAD_DONE = false;
+
     // Set right after pledging, shown above the pledge list, cleared once they
     // move on. Deliberately not persisted — it is about this moment only.
     var NEW_PLEDGE_NOTE = "";
@@ -866,6 +888,11 @@
     // Same idea for identity: the token from a magic link, or the one we saved
     // when they pledged on this device.
     var MAGIC_TOKEN = clean(params.get("t")) || recall(STORE_TOKEN);
+
+    // This device has pledged before, by either piece of evidence. Set before
+    // any render so the loading state knows which of the two panels it is
+    // waiting on.
+    var KNOWN_DEVICE = !!(MAGIC_TOKEN || recall(STORE_MINE));
 
     // totals starts null, not {}. An empty object is truthy, which silently
     // made the snapshot render a no-op and kept the page slow.
@@ -1105,6 +1132,19 @@
         : [];
 
       if (!mine || !visible.length) {
+        // Still waiting on the first answer for a device that has pledged
+        // before. Hold the slot with a placeholder instead of declaring them
+        // a stranger and reversing it a moment later.
+        if (!FIRST_LOAD_DONE && KNOWN_DEVICE) {
+          recall.classList.add("hidden");
+          section.classList.remove("hidden");
+          $("mineBanner").classList.add("hidden");
+          $("mineTitle").textContent = "Finding your pledge…";
+          $("mineSubtitle").textContent = "One moment.";
+          $("mineRows").innerHTML = '<div class="pledge-row skeleton-row"></div>';
+          $("minePayNow").innerHTML = "";
+          return;
+        }
         section.classList.add("hidden");
         // We do not know this visitor. Offer the way back in rather than
         // silently showing them a blank pledge form they have already filled.
@@ -1267,17 +1307,21 @@
       // Your own pledges first — it is the top of the page and the reason a
       // returning friend opened it. Only trusted while we still hold the token
       // that fetched it; loadRegistry corrects or clears it moments later.
-      if (MAGIC_TOKEN) {
-        var mineRaw = recall(STORE_MINE);
-        if (mineRaw) {
-          try {
-            state.mine = JSON.parse(mineRaw);
-            renderMine();
-          } catch (error) {
-            forget(STORE_MINE);
-          }
+      // This used to require a magic token. It should not: the cache is this
+      // device's own copy of its own pledge, and plenty of friends pledge and
+      // come back without ever holding a token. Gating on one made them wait
+      // the full 2-3s to be recognised.
+      var mineRaw = recall(STORE_MINE);
+      if (mineRaw) {
+        try {
+          state.mine = JSON.parse(mineRaw);
+        } catch (error) {
+          forget(STORE_MINE);
         }
       }
+      // Always render: with a cache this paints the real pledge instantly,
+      // without one it paints the placeholder above.
+      renderMine();
 
       var raw = recall(STORE_PAYLOAD);
       if (raw) {
@@ -1306,12 +1350,17 @@
       var startedAt = MINE_VERSION;
       return apiGet({ api: "registry", t: MAGIC_TOKEN, k: KEY })
         .then(function (response) {
+          // Whatever happened, the waiting is over. Set before any render so
+          // the placeholder resolves into a real panel instead of hanging.
+          FIRST_LOAD_DONE = true;
+
           if (response && response.locked) {
             showGate("");
             return;
           }
           if (!response || !response.ok) {
             showToast((response && response.error) || "Could not load the page.");
+            renderMine();
             return;
           }
 
@@ -1325,7 +1374,10 @@
           // Someone changed something locally while this was in flight, so
           // this answer is already out of date. The totals above are still
           // worth taking; their own pledges are not.
-          if (startedAt !== MINE_VERSION) return;
+          if (startedAt !== MINE_VERSION) {
+            renderMine();
+            return;
+          }
 
           state.mine = response.my_pledge || null;
           // A token that no longer resolves is a dead bookmark; drop it.
@@ -1338,6 +1390,8 @@
           renderMine();
         })
         .catch(function (error) {
+          FIRST_LOAD_DONE = true;
+          renderMine();
           showToast(error && error.message ? error.message : "Could not load the page.");
         });
     }
