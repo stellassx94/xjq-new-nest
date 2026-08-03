@@ -799,6 +799,11 @@
     // does not have to remember which address they used.
     var STORE_EMAIL = "nest-email";
 
+    // Your own pledges, from last visit. This is the panel a returning friend
+    // actually came to look at, and it was the last thing still waiting on a
+    // 2-10s Apps Script call. Their own data, on their own device.
+    var STORE_MINE = "nest-mine";
+
     // Set right after pledging, shown above the pledge list, cleared once they
     // move on. Deliberately not persisted — it is about this moment only.
     var NEW_PLEDGE_NOTE = "";
@@ -1177,6 +1182,21 @@
      * it has totals, so it wins. Either way loadRegistry overwrites both.
      */
     function renderFirstPaint() {
+      // Your own pledges first — it is the top of the page and the reason a
+      // returning friend opened it. Only trusted while we still hold the token
+      // that fetched it; loadRegistry corrects or clears it moments later.
+      if (MAGIC_TOKEN) {
+        var mineRaw = recall(STORE_MINE);
+        if (mineRaw) {
+          try {
+            state.mine = JSON.parse(mineRaw);
+            renderMine();
+          } catch (error) {
+            forget(STORE_MINE);
+          }
+        }
+      }
+
       var raw = recall(STORE_PAYLOAD);
       if (raw) {
         try {
@@ -1218,6 +1238,11 @@
           state.mine = response.my_pledge || null;
           // A token that no longer resolves is a dead bookmark; drop it.
           if (!state.mine && MAGIC_TOKEN) forget(STORE_TOKEN);
+          if (state.mine) {
+            remember(STORE_MINE, JSON.stringify(state.mine));
+          } else {
+            forget(STORE_MINE);
+          }
           renderMine();
         })
         .catch(function (error) {
@@ -1327,6 +1352,7 @@
     $("forgetMe").addEventListener("click", function () {
       forget(STORE_TOKEN);
       forget(STORE_EMAIL);
+      forget(STORE_MINE);
       MAGIC_TOKEN = "";
       $("lookupEmail").value = "";
       state.mine = null;
