@@ -904,7 +904,10 @@
 
     var STORE_KEY = "nest-key";
     var STORE_TOKEN = "nest-token";
-    var STORE_PAYLOAD = "nest-payload";
+    // v2: the v1 entry carried totals and names. Renaming the key rather than
+    // trying to clean it means every browser already holding a stale figure
+    // drops it on the next visit instead of replaying it forever.
+    var STORE_PAYLOAD = "nest-payload-v2";
     // Kept only to prefill the "send me my link" field, so a returning guest
     // does not have to remember which address they used.
     var STORE_EMAIL = "nest-email";
@@ -1040,7 +1043,11 @@
      * caller would read as a rejection. A write that cannot be confirmed is
      * reported as unconfirmed, never repeated and never rolled back.
      */
-    var API_TIMEOUT_MS = 20000;
+    // Apps Script answers in 2-4s and its realistic worst case is under ten.
+    // This was 20s, and a timeout then retried into a second 20s window, so a
+    // single bad call could leave the page doing nothing for the better part
+    // of a minute. Nothing useful arrives after eight seconds.
+    var API_TIMEOUT_MS = 8000;
 
     function fetchJson(url, options, attemptsLeft) {
       var controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -1066,9 +1073,12 @@
         .catch(function (error) {
           clearTimeout(timer);
           if (error && error.notJson) throw error;
-          if (attemptsLeft > 0) return fetchJson(url, options, attemptsLeft - 1);
+          // A timeout is never retried. Waiting eight seconds and then waiting
+          // eight more is not resilience, it is the page appearing to hang.
+          var timedOut = error && error.name === "AbortError";
+          if (attemptsLeft > 0 && !timedOut) return fetchJson(url, options, attemptsLeft - 1);
           var wrapped = new Error(
-            error && error.name === "AbortError"
+            timedOut
               ? "That took too long. Please try again."
               : "We could not reach the server. Check your connection and try again."
           );
@@ -1581,7 +1591,19 @@
           if (KEY) remember(STORE_KEY, KEY);
 
           applyRegistry(response.registry);
-          remember(STORE_PAYLOAD, JSON.stringify(response.registry));
+
+          // Cache the items and the copy, never the money or the names.
+          //
+          // This is why a total of S$6,003 survived every pledge being
+          // cancelled in the sheet: the figure was not coming from the server
+          // at all, it was last visit's number replayed out of localStorage on
+          // first paint. A stale total is worse than no total, and renderProgress
+          // already knows how to hold a skeleton until the live one lands.
+          //
+          // It also keeps other people's names and the running total out of
+          // storage on a device that may not be theirs.
+          var keep = { settings: response.registry.settings, items: response.registry.items };
+          remember(STORE_PAYLOAD, JSON.stringify(keep));
 
           // Someone changed something locally while this was in flight, so
           // this answer is already out of date. The totals above are still
