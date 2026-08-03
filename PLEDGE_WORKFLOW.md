@@ -63,7 +63,7 @@ Every item on the page is one row in `Registry Items`. These are the only column
 | Change the title shown | `display_name` (falls back to `scraped_title`) |
 | Change the blurb under it | `description` (falls back to `remarks`) |
 | Change the room label | `category` |
-| Use a better photo | `display_image` — overrides the scraped one |
+| Use a better photo | `display_image` — overrides the scraped one. **All five are set by hand**: the scraper grabs whatever og:image a shop happens to expose, which mixes white-background shots with lifestyle photography and is most of why the section used to look cheap. Pick one white-background product shot per item, check it is under ~150KB, and put it here so the scraper cannot overwrite it |
 | Change where the card links to | `source_link`. Blank means the card is not clickable |
 | Reorder the page | `sort_order`, ascending |
 | Hide an item | `status` = `hidden` / `archived` / `draft`, or `active` = `FALSE` |

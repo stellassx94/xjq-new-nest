@@ -3,7 +3,7 @@
     {
       "description": "Panasonic NN-CS89LBYPQ 31L convection steam grill microwave oven",
       "id": "panasonic-steam-oven-microwave",
-      "image": "https://lioncityco.com/cdn/shop/files/NN-CS89LBYPQ.jpg?v=1720623971",
+      "image": "https://lioncityco.com/cdn/shop/files/NN-CS89LBYPQ_600x.jpg",
       "link": "https://s.shopee.sg/4qCh63pDLa?share_channel_code=1",
       "name": "Steam Oven Microwave",
       "price_sgd": "1058.9",
@@ -12,15 +12,15 @@
       "vendor": "shopee.sg"
     },
     {
-      "description": "Wine/drinks chiller",
+      "description": "Farfalla FWC-24E — 24 bottles, dual zone, and only 395mm wide",
       "id": "wine-drinks-chiller",
-      "image": "",
-      "link": "",
+      "image": "https://winefridge.sg/cdn/shop/files/Farfalla24BotDualZoneWineCooler-FWC-24E_WineFridgeSG_600x.jpg",
+      "link": "https://winefridge.sg/products/farfalla-24-bot-dual-zone-wine-chiller-fwc-24e",
       "name": "Wine Chiller",
-      "price_sgd": "",
+      "price_sgd": "749",
       "reference_title": "Wine/drinks chiller",
       "room": "Dry Pantry",
-      "vendor": ""
+      "vendor": "winefridge.sg"
     },
     {
       "description": "Dyson V12 Detect Slim Absolute HEPA cordless vacuum",
@@ -34,20 +34,20 @@
       "vendor": "shopee.sg"
     },
     {
-      "description": "Air purifier",
-      "id": "air-purifier",
-      "image": "",
-      "link": "",
+      "description": "Dyson Purifier Cool Formaldehyde — destroys the formaldehyde a new flat gives off, and doubles as a fan",
+      "id": "dyson-purifier-tp09",
+      "image": "https://www.courts.com.sg/on/demandware.static/-/Sites-courts-m-catalog-sg/default/dw4d263521/images/hires/media/catalog/product/i/p/ip184789_00.jpg",
+      "link": "https://www.dyson.com.sg/products/air-purifiers-and-fans/dyson-purifier-cool-formaldehyde/overview",
       "name": "Air Purifier",
-      "price_sgd": "",
+      "price_sgd": "999",
       "reference_title": "Air purifier",
       "room": "Bedroom",
-      "vendor": ""
+      "vendor": "dyson.com.sg"
     },
     {
       "description": "Google Nest Hub smart display",
       "id": "google-nest-hub",
-      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Google_Nest_Hub.jpg?width=400",
+      "image": "https://lh3.googleusercontent.com/8w4wX3gEAl2NNDsOjada6cJhffoTINe5b-eAm6fwZV-OQ9fj_woEboVh1MqPTllINdiR7xl2ICrSJvzzbibxojIoKMTfXKsQJkK-=c0xffffff-rj-sc0xffffffff",
       "link": "https://s.shopee.sg/5VUDt6XfYO",
       "name": "Google Nest Hub",
       "price_sgd": "150",
