@@ -6,3 +6,6 @@ registry.html
 WORKFLOW.md
 reference/
 tools/
+
+# clasp OAuth credentials, if they are ever created inside the repo.
+.clasprc.json

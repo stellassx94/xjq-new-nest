@@ -113,7 +113,21 @@ Then open https://stellassx94.github.io/xjq-new-nest/, make one test pledge to y
 
 ## Changing the code later
 
-Editing `Code.gs` is not enough — Apps Script needs a **new deployment version** (Deploy → Manage deployments → pencil → Version: New version) before the change goes live.
+Editing `Code.gs` is not enough — Apps Script needs a **new deployment version** before the change goes live. Two ways:
+
+**From the terminal** (set up, and what you should use):
+
+```
+cd apps-script-pledge
+npx @google/clasp push -f
+npx @google/clasp deploy -i AKfycbylNBW3GEAyJkh4s6nBGQ8pzJyyhcVU1rdUO-iYUPEmGrv-mCRYICOi-MSt0H-QSvEq -d "what changed"
+```
+
+`push` uploads the file exactly as it is on disk. `deploy -i` cuts a new version and repoints **that same deployment**, so the `/exec` URL never changes — which matters, because it is baked into `docs/index.html` and the snapshot workflow. Passing `deploy` without `-i` would mint a *new* URL and silently leave the site talking to the old code.
+
+Credentials live in `~/.clasprc.json`, outside this repo, authorised as **simsxs@gmail.com**. `.clasp.json` holds only the script id, which is already public in the editor link below.
+
+**By hand**: Deploy → Manage deployments → pencil → Version: New version.
 
 ## Why the page is fast now
 

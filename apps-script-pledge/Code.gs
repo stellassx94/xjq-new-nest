@@ -477,10 +477,26 @@ function countedAmount_(pledge) {
 const PUBLIC_PAYLOAD_CACHE_KEY = 'public-payload-v2';
 const PUBLIC_PAYLOAD_CACHE_SECONDS = 60;
 
+// When the data last changed. Kept for six hours, the longest the cache allows.
+const PUBLIC_PAYLOAD_STAMP_KEY = 'public-payload-cleared-at';
+const PUBLIC_PAYLOAD_STAMP_SECONDS = 21600;
+
 /**
  * Every page load otherwise re-reads three sheets, which is most of the wait a
- * guest sees. Memoise the payload for a minute; any write clears it, so the
- * page never shows a stale total after someone pledges.
+ * guest sees. Memoise the payload for a minute.
+ *
+ * Clearing the cache on write is not on its own enough, and this is not
+ * theoretical — it showed on the page as a pledge of S$6,000 sitting above a
+ * total of S$3,003. A read that began BEFORE a write can finish AFTER it, and
+ * then cache what it read, reinstating the pre-write figures for a full minute
+ * even though the cache was correctly cleared in between:
+ *
+ *     reader:  [--- reads sheets ------------------] put(stale)
+ *     writer:        [ writes ] clear()
+ *
+ * So note when the build started, and refuse to cache the result if anything
+ * changed while it was running. Losing a cache write costs one rebuild; making
+ * a stale one costs every visitor a wrong total for the next sixty seconds.
  */
 function getPublicRegistryPayload_() {
   const cache = CacheService.getScriptCache();
@@ -493,9 +509,15 @@ function getPublicRegistryPayload_() {
     }
   }
 
+  const startedAt = Date.now();
   const payload = buildPublicRegistryPayload_();
   try {
-    cache.put(PUBLIC_PAYLOAD_CACHE_KEY, JSON.stringify(payload), PUBLIC_PAYLOAD_CACHE_SECONDS);
+    const clearedAt = Number(cache.get(PUBLIC_PAYLOAD_STAMP_KEY) || 0);
+    if (clearedAt <= startedAt) {
+      cache.put(PUBLIC_PAYLOAD_CACHE_KEY, JSON.stringify(payload), PUBLIC_PAYLOAD_CACHE_SECONDS);
+    }
+    // Otherwise this payload is already out of date. Return it to the caller
+    // that asked, but do not hand it to anyone else.
   } catch (error) {
     // Payload too big to cache is not worth failing the request over.
     console.error('Could not cache payload: ' + (error && error.message));
@@ -505,7 +527,11 @@ function getPublicRegistryPayload_() {
 
 function clearPublicPayloadCache_() {
   try {
-    CacheService.getScriptCache().remove(PUBLIC_PAYLOAD_CACHE_KEY);
+    const cache = CacheService.getScriptCache();
+    cache.remove(PUBLIC_PAYLOAD_CACHE_KEY);
+    // Recorded so a build already in flight knows its read is now out of date
+    // and declines to cache what it found.
+    cache.put(PUBLIC_PAYLOAD_STAMP_KEY, String(Date.now()), PUBLIC_PAYLOAD_STAMP_SECONDS);
   } catch (error) {
     // Nothing to do; the entry expires on its own within a minute.
   }
