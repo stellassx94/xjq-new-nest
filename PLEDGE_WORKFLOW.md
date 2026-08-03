@@ -76,8 +76,8 @@ Prices are stored but deliberately **not shown** on the page — for the same re
 
 1. How much has been pledged so far, your headline, and the browse-only item grid. **No target and no progress bar** — this is a gift, not a fundraiser, and a bar implies a share each friend owes.
 2. They enter name, email and any amount, plus an optional note.
-3. They get a **reference code** (`NEST-4KQ2`) with the PayNow QR on screen, and the same in an email.
-4. They transfer whenever they like, putting the reference code in the PayNow reference field.
+3. They get the PayNow QR on screen, and the same in an email. **No reference code to copy** — it exists in your sheet but is never asked of them, since you are not matching bank lines.
+4. They transfer whenever they like.
 5. When they have transferred they tap **"I've sent it"** and confirm the amount. That closes the loop for them — the QR disappears and the row turns green. Nothing waits on you.
 6. "Email me my pledge link" sends a private link to a page showing their own pledges, the QR only if still unpaid, and a cancel button. Links last 30 days; requesting a new one re-issues the token.
 
@@ -165,4 +165,4 @@ Item scraping still belongs to the **older** registry script bound to the same s
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbz5038b55w1EvI5xUESgKAK_Oq11MwMyPygUiOHzLt4ajn0HnWNhCshofUhbJoL0Nzz/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbylNBW3GEAyJkh4s6nBGQ8pzJyyhcVU1rdUO-iYUPEmGrv-mCRYICOi-MSt0H-QSvEq/exec` |

@@ -54,6 +54,9 @@ const PLEDGE_COLUMNS = [
   'guest_email',
   'amount_sgd',
   'message',
+  // Kept for the owner's benefit only. Friends are never shown it and never
+  // asked to type it: it existed so a bank line could be matched to a row,
+  // and that reconciliation is not something we ask of anyone any more.
   'reference_code',
   'status',
   'received_on',
@@ -1112,8 +1115,7 @@ function sendPledgeConfirmationEmail_(pledge, config) {
     subject: 'Your pledge to ' + headline + ' — ' + moneyText_(pledge.amount_sgd),
     htmlBody: body,
     body: 'Thank you. Pledge: ' + moneyText_(pledge.amount_sgd)
-      + '. PayNow reference: ' + pledge.reference_code
-      + (link ? '. Manage your pledge: ' + link : ''),
+      + (link ? '. See or change it any time: ' + link : ''),
     name: from,
   });
 }
@@ -1124,8 +1126,8 @@ function sendMagicLinkEmail_(guestName, email, token, pledges) {
   const from = cleanString_(settings.couple_names) || headline;
   const link = magicLinkUrl_(token);
   const rows = pledges.map((pledge) => '<li>' + moneyText_(pledge.amount_sgd)
-    + ' — ' + escapeHtmlForEmail_(pledge.status)
-    + ' (reference <strong>' + escapeHtmlForEmail_(pledge.reference_code) + '</strong>)</li>').join('');
+    + ' — ' + escapeHtmlForEmail_(pledge.claims_paid_on ? 'sent, thank you' : 'not sent yet')
+    + '</li>').join('');
 
   MailApp.sendEmail({
     to: email,
@@ -1175,8 +1177,11 @@ function payNowBlock_(settings, pledge) {
   if (number) parts.push('<p style="margin:4px 0;">PayNow to <strong>' + escapeHtmlForEmail_(number) + '</strong>'
     + (name ? ' (' + escapeHtmlForEmail_(name) + ')' : '') + '</p>');
   parts.push('<p style="margin:4px 0;">Amount: <strong>' + moneyText_(pledge.amount_sgd) + '</strong></p>');
-  parts.push('<p style="margin:4px 0;">Put this in the reference field: <strong style="font-size:18px;letter-spacing:1px;">'
-    + escapeHtmlForEmail_(pledge.reference_code) + '</strong></p>');
+  // No reference code. It only ever existed for the owner to match a bank
+  // line to a row, and she trusts people instead — so asking a guest to type
+  // it into their banking app buys nothing. Still recorded in the sheet.
+  parts.push('<p style="margin:4px 0;">Then come back to your pledge page and tap '
+    + '<strong>I have sent it</strong>. That is the whole thing.</p>');
   if (qr) parts.push('<p style="margin:12px 0 0;"><img src="' + qr + '" alt="PayNow QR" style="max-width:220px;height:auto;"></p>');
   parts.push('</div>');
   return parts.join('');

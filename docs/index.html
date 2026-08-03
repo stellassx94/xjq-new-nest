@@ -362,31 +362,6 @@
     .steps li { margin: 6px 0; }
     .steps strong { color: var(--ink); }
 
-    .reference { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
-
-    .reference code {
-      flex: 1;
-      padding: 11px 14px;
-      border: 1px dashed var(--green);
-      border-radius: 7px;
-      background: var(--surface);
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-align: center;
-    }
-
-    .copy-btn {
-      padding: 11px 14px;
-      border: 1px solid var(--green);
-      border-radius: 7px;
-      background: var(--surface);
-      color: var(--green);
-      font-size: 0.84rem;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
     /* ---------- my pledge ---------- */
 
     .mine { border-left: 4px solid var(--green); }
@@ -790,7 +765,7 @@
      * Backend — Apps Script web app bound to the "Bishan Renovation" sheet.
      * Redeploying a new version keeps this URL, so it rarely changes.
      * ------------------------------------------------------------------ */
-    var API_URL = "https://script.google.com/macros/s/AKfycbz5038b55w1EvI5xUESgKAK_Oq11MwMyPygUiOHzLt4ajn0HnWNhCshofUhbJoL0Nzz/exec";
+    var API_URL = "https://script.google.com/macros/s/AKfycbylNBW3GEAyJkh4s6nBGQ8pzJyyhcVU1rdUO-iYUPEmGrv-mCRYICOi-MSt0H-QSvEq/exec";
 
     var STORE_KEY = "nest-key";
     var STORE_TOKEN = "nest-token";
@@ -985,6 +960,14 @@
       }).join("");
     }
 
+    /**
+     * No reference code here any more. It existed so the owner could match a
+     * bank line to a row, and she has chosen to trust people instead. Asking a
+     * friend to copy a code into their banking app for a reconciliation that
+     * never happens is pure friction — and the old copy claimed it was "how we
+     * know it is you", which stopped being true. The code is still generated
+     * and still in the sheet if it is ever wanted.
+     */
     function payNowHtml(pledge, paynow) {
       var details = paynow || state.paynow || {};
       var parts = ["<h3>PayNow when you are ready</h3>", '<ol class="steps">'];
@@ -992,18 +975,13 @@
       parts.push("<li>Open your banking app and scan the QR"
         + (details.number ? ", or PayNow to <strong>" + escapeHtml(details.number) + "</strong>" : "")
         + (details.name ? " (" + escapeHtml(details.name) + ")" : "") + ".</li>");
-      parts.push("<li>Amount: <strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong>.</li>");
-      parts.push("<li>Paste the code below into the <strong>reference</strong> field — that is how we know it is you.</li>");
+      parts.push("<li>Send <strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong>.</li>");
+      parts.push("<li>Come back and tap <strong>I&rsquo;ve sent it</strong>. That is all.</li>");
       parts.push("</ol>");
-
-      parts.push('<div class="reference"><code>' + escapeHtml(pledge.reference_code)
-        + '</code><button class="copy-btn" type="button" data-copy="' + escapeHtml(pledge.reference_code)
-        + '">Copy</button></div>');
 
       if (details.qr_image_url) {
         parts.push('<img src="' + escapeHtml(details.qr_image_url) + '" alt="PayNow QR code">');
       }
-      parts.push('<p class="hint">Lost it? It is in your email too.</p>');
       return parts.join("");
     }
 
@@ -1098,8 +1076,8 @@
         // Once sent, lead with what they gave, not what they promised.
         var figure = done ? paidAmount(pledge) : pledge.amount_sgd;
         var note = done && paidAmount(pledge) !== Number(pledge.amount_sgd)
-          ? "Pledged " + money(pledge.amount_sgd)
-          : "Reference " + pledge.reference_code;
+          ? "You pledged " + money(pledge.amount_sgd)
+          : "Pledged " + (pledge.pledged_on || "").slice(0, 10);
 
         return '<div class="pledge-row">'
           + "<div><strong>" + escapeHtml(money(figure)) + "</strong> " + statusTag(pledge)
@@ -1127,8 +1105,7 @@
     function noteNewPledge(pledge) {
       $("pledgeBody").classList.add("hidden");
       NEW_PLEDGE_NOTE = "Pledge added — " + money(pledge.amount_sgd)
-        + ", reference " + pledge.reference_code
-        + ". We have emailed you the details. The PayNow QR is below.";
+        + ". We have emailed you a link back to this page. The PayNow QR is below.";
     }
 
     function renderBanner() {
@@ -1383,9 +1360,6 @@
         return;
       }
 
-      var copy = target.closest("[data-copy]");
-      if (copy) { copyText(copy.dataset.copy); return; }
-
       if (target.closest("#againBtn")) {
         NEW_PLEDGE_NOTE = "";
         renderBanner();
@@ -1518,34 +1492,6 @@
       return (mine.pledges || []).filter(function (pledge) {
         return pledge.pledge_id === id;
       })[0];
-    }
-
-    function copyText(text) {
-      // navigator.clipboard is missing in some in-app browsers, so fall back
-      // to a hidden textarea before giving up.
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () { showToast("Reference copied"); }, legacyCopy);
-        return;
-      }
-      legacyCopy();
-
-      function legacyCopy() {
-        var field = document.createElement("textarea");
-        field.value = text;
-        field.setAttribute("readonly", "readonly");
-        field.style.position = "fixed";
-        field.style.opacity = "0";
-        document.body.appendChild(field);
-        field.select();
-        field.setSelectionRange(0, text.length);
-        try {
-          document.execCommand("copy");
-          showToast("Reference copied");
-        } catch (error) {
-          showToast("Copy it manually: " + text);
-        }
-        document.body.removeChild(field);
-      }
     }
 
     $("lookupEmail").value = recall(STORE_EMAIL);
