@@ -927,23 +927,78 @@
        Apps Script cannot answer a CORS preflight, so requests stay "simple":
        GET, or POST with Content-Type text/plain. Anything else fails. */
 
+    /**
+     * Apps Script answers a POST with a 302 to a one-shot script.googleusercontent
+     * URL, and that second hop intermittently serves Google's own HTML error
+     * page ("Sorry, unable to open the file at present") instead of our JSON.
+     * `response.json()` then threw `Unexpected token '<'` straight into the
+     * user's face, and — far worse — the caller treated it as a failed write
+     * and rolled the pledge back, even though the row had already been written
+     * to the sheet.
+     *
+     * So: never call .json() blind. Read text, parse it ourselves, and retry
+     * once, since the failure is transient and a second attempt of a read is
+     * free.
+     *
+     * Writes are NOT retried. The first attempt may well have reached the sheet
+     * — a bad second hop says nothing about whether the script ran — and the
+     * per-email throttle would answer a quick retry with "too fast", which the
+     * caller would read as a rejection. A write that cannot be confirmed is
+     * reported as unconfirmed, never repeated and never rolled back.
+     */
+    var API_TIMEOUT_MS = 20000;
+
+    function fetchJson(url, options, attemptsLeft) {
+      var controller = typeof AbortController === "function" ? new AbortController() : null;
+      if (controller) options.signal = controller.signal;
+      var timer = setTimeout(function () {
+        if (controller) controller.abort();
+      }, API_TIMEOUT_MS);
+
+      return fetch(url, options)
+        .then(function (response) { return response.text(); })
+        .then(function (text) {
+          clearTimeout(timer);
+          try {
+            return JSON.parse(text);
+          } catch (error) {
+            // Google's error page, not ours. Retry once before giving up.
+            if (attemptsLeft > 0) return fetchJson(url, options, attemptsLeft - 1);
+            var stumble = new Error("Google's servers hiccuped. Please try again in a moment.");
+            stumble.notJson = true;
+            throw stumble;
+          }
+        })
+        .catch(function (error) {
+          clearTimeout(timer);
+          if (error && error.notJson) throw error;
+          if (attemptsLeft > 0) return fetchJson(url, options, attemptsLeft - 1);
+          var wrapped = new Error(
+            error && error.name === "AbortError"
+              ? "That took too long. Please try again."
+              : "We could not reach the server. Check your connection and try again."
+          );
+          wrapped.unreached = true;
+          throw wrapped;
+        });
+    }
+
     function apiGet(query) {
       var qs = Object.keys(query)
         .filter(function (name) { return query[name]; })
         .map(function (name) { return encodeURIComponent(name) + "=" + encodeURIComponent(query[name]); })
         .join("&");
-      return fetch(API_URL + "?" + qs, { method: "GET", redirect: "follow" })
-        .then(function (response) { return response.json(); });
+      return fetchJson(API_URL + "?" + qs, { method: "GET", redirect: "follow" }, 1);
     }
 
     function apiPost(body) {
       body.k = KEY;
-      return fetch(API_URL, {
+      return fetchJson(API_URL, {
         method: "POST",
         redirect: "follow",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(body),
-      }).then(function (response) { return response.json(); });
+      }, 0);
     }
 
     /* ---------- rendering ---------- */
@@ -1488,10 +1543,45 @@
             MAGIC_TOKEN = response.magic_token;
           }
           if (startedAt !== MINE_VERSION) return;
-          noteNewPledge(response.pledge);
+
+          // Swap the provisional row for the real one HERE, from the reply we
+          // are already holding. It used to wait for loadRegistry to come back
+          // with it, which meant a second 2-3s round trip and a row that sat
+          // reading "Saving…" for the whole six to nine seconds. Nothing about
+          // this pledge needs the server twice.
+          if (response.pledge) {
+            state.mine.pledges = state.mine.pledges.map(function (pledge) {
+              return pledge.pledge_id === PENDING_ID ? response.pledge : pledge;
+            });
+            if (response.paynow) state.mine.paynow = response.paynow;
+            remember(STORE_MINE, JSON.stringify(state.mine));
+            noteNewPledge(response.pledge);
+            renderMine();
+          }
+
+          button.disabled = false;
+          button.textContent = "Pledge";
+
+          // Only the shared total and the friends list still need the server,
+          // and nothing on screen is waiting on them.
           loadRegistry();
         })
-        .catch(function (error) { fail(error && error.message ? error.message : "Something went wrong."); });
+        .catch(function (error) {
+          // The write may well have landed — a transport failure tells us
+          // nothing either way. Rolling back here is what made a successful
+          // pledge vanish from the page while sitting in the sheet. Keep the
+          // row, say plainly that we could not confirm it, and let the next
+          // load settle it.
+          unconfirmed(error && error.message ? error.message : "Something went wrong.");
+        });
+
+      function unconfirmed(message) {
+        button.disabled = false;
+        button.textContent = "Pledge";
+        errorBox.textContent = message
+          + " Your pledge may still have gone through — reload in a moment before trying again.";
+        errorBox.classList.remove("hidden");
+      }
 
       function fail(message) {
         // Only roll back if we actually got as far as showing the row. The
@@ -1685,11 +1775,13 @@
           loadRegistry();
         })
         .catch(function (error) {
-          state.mine = previous;
-          if (previous) remember(STORE_MINE, JSON.stringify(previous));
-          renderMine();
+          // Same reasoning as the pledge form: a transport failure does not
+          // mean the change was rejected, only that we did not hear back.
+          // Undoing it here would put a cancelled pledge back on screen while
+          // the sheet had it cancelled. Keep the optimistic state and say so.
           if (button) button.disabled = false;
-          showToast(error && error.message ? error.message : "That did not work.");
+          showToast((error && error.message ? error.message : "That did not work.")
+            + " We could not confirm it — reload in a moment to check.");
         });
     }
 
