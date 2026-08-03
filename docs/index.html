@@ -1127,6 +1127,25 @@
         + ". We have emailed you a link back to this page. The PayNow QR is below.";
     }
 
+    /**
+     * Puts the pledge form back in a usable state. The last submit leaves the
+     * button disabled and reading "Sending…" behind the hidden form, so any
+     * path that reveals it again has to reset that or it comes back dead.
+     * Name and email stay — they just told us.
+     */
+    function showPledgeForm() {
+      if (state.settings && state.settings.closed) return;
+      $("pledgeBody").classList.remove("hidden");
+      $("pledgeError").classList.add("hidden");
+      $("pledgeSubmit").disabled = false;
+      $("pledgeSubmit").textContent = "Pledge";
+      $("amount").value = "";
+      $("message").value = "";
+      document.querySelectorAll(".chip").forEach(function (chip) {
+        chip.setAttribute("aria-pressed", "false");
+      });
+    }
+
     function renderBanner() {
       var banner = $("mineBanner");
       if (!NEW_PLEDGE_NOTE) {
@@ -1427,18 +1446,7 @@
       if (target.closest("#againBtn")) {
         NEW_PLEDGE_NOTE = "";
         renderBanner();
-        $("pledgeBody").classList.remove("hidden");
-        // Name and email stay — they just told us. Only the amount and note
-        // are per-pledge. The button is reset because the last submit left it
-        // disabled and reading "Sending…" behind the hidden form.
-        $("amount").value = "";
-        $("message").value = "";
-        $("pledgeError").classList.add("hidden");
-        $("pledgeSubmit").disabled = false;
-        $("pledgeSubmit").textContent = "Pledge";
-        document.querySelectorAll(".chip").forEach(function (chip) {
-          chip.setAttribute("aria-pressed", "false");
-        });
+        showPledgeForm();
         $("pledgeSection").scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
@@ -1512,6 +1520,15 @@
      */
     function mutate(body, successMessage, button, apply) {
       var previous = state.mine ? JSON.parse(JSON.stringify(state.mine)) : null;
+
+      // The banner reports the pledge that was just added. Changing, cancelling
+      // or sending anything makes it a stale snapshot — it kept announcing the
+      // original amount next to a row showing the amended one.
+      //
+      // Its "Chip in again" link is also the only way back to the form once
+      // noteNewPledge has hidden it, so bring the form back as the banner goes.
+      NEW_PLEDGE_NOTE = "";
+      showPledgeForm();
 
       if (apply && state.mine) {
         var draft = JSON.parse(JSON.stringify(state.mine));
