@@ -37,7 +37,7 @@ jobs:
           # The repo is public, so the page password lives in Actions secrets
           # and is passed via --data-urlencode rather than a literal URL.
           SITE_KEY: ${{ secrets.SITE_KEY }}
-          API_URL: https://script.google.com/macros/s/AKfycbyumQuwmlC48dL_peQWGgcYFpUGdl9xPTx-Y_ZhoW6RyNn3zXVh5mjd8I7u8Bb_0a3K/exec
+          API_URL: https://script.google.com/macros/s/AKfycbz5038b55w1EvI5xUESgKAK_Oq11MwMyPygUiOHzLt4ajn0HnWNhCshofUhbJoL0Nzz/exec
         run: |
           set -euo pipefail
 

@@ -283,7 +283,7 @@ function onOpen() {
       .addItem('Send thank-you emails', 'sendThankYouEmailsFromMenu_')
       .addItem('Resend confirmation for selected row', 'resendConfirmationForSelectedRow_')
       .addSeparator()
-      .addItem('Set up pledge tabs', 'setupPledgeSheets_')
+      .addItem('Set up pledge tabs', 'setupPledgeSheetsFromMenu_')
       .addToUi();
   } catch (error) {
     // Spreadsheet UI is only available when opened as a sheet.
@@ -316,22 +316,50 @@ function normalizeItem_(item) {
 
 const MAGIC_LINK_GENERIC_MESSAGE = 'If that email has a pledge, we have just sent the link. Check your inbox (and spam).';
 
-function setupPledgeSheets_() {
+const SETUP_CACHE_KEY = 'pledge-setup-done-v1';
+const SETUP_CACHE_SECONDS = 3600;
+
+/**
+ * Called at the top of every guest action, so it has to be cheap.
+ *
+ * It used to do the full job every time — including writing a data validation
+ * rule across roughly a thousand rows — which made cancelling a pledge take
+ * seconds. Only the header check is genuinely needed before a write; the rest
+ * is one-off setup that cannot drift on its own, so it runs at most hourly.
+ *
+ * Pass true to force it, which is what the menu item does.
+ */
+function setupPledgeSheets_(force) {
   const spreadsheet = getSpreadsheet_();
   const pledges = spreadsheet.getSheetByName(REGISTRY_CONFIG.pledgesSheet)
     || spreadsheet.insertSheet(REGISTRY_CONFIG.pledgesSheet);
+
+  // Cheap, and writes depend on it: one read of row 1.
+  ensureHeader_(pledges, PLEDGE_COLUMNS);
+
+  const cache = CacheService.getScriptCache();
+  if (!force && cache.get(SETUP_CACHE_KEY)) return { ok: true, skipped: true };
+
   const dashboard = spreadsheet.getSheetByName(REGISTRY_CONFIG.pledgeDashboardSheet)
     || spreadsheet.insertSheet(REGISTRY_CONFIG.pledgeDashboardSheet);
   const config = spreadsheet.getSheetByName(REGISTRY_CONFIG.pledgeConfigSheet)
     || spreadsheet.insertSheet(REGISTRY_CONFIG.pledgeConfigSheet);
 
-  ensureHeader_(pledges, PLEDGE_COLUMNS);
   pledges.setFrozenRows(1);
   applyPledgeStatusValidation_(pledges);
   seedPledgeConfig_(config);
   dashboard.setFrozenRows(4);
 
+  try {
+    cache.put(SETUP_CACHE_KEY, '1', SETUP_CACHE_SECONDS);
+  } catch (error) {
+    // Losing the flag only means doing this again; not worth failing over.
+  }
   return { ok: true };
+}
+
+function setupPledgeSheetsFromMenu_() {
+  setupPledgeSheets_(true);
 }
 
 function applyPledgeStatusValidation_(sheet) {
@@ -627,7 +655,7 @@ function submitPledge_(body) {
     }
 
     writeObjectRow_(sheet, sheet.getLastRow() + 1, PLEDGE_COLUMNS, record);
-    refreshTokenExpiryForEmail_(email, record.magic_token);
+    refreshTokenExpiryForEmail_(email, record.magic_token, existing);
 
     try {
       sendPledgeConfirmationEmail_(record, config);
@@ -680,12 +708,17 @@ function requestMagicLink_(email) {
   return generic;
 }
 
-function lookupPledgeByToken_(magicToken) {
+/**
+ * `known` lets a caller that has just read every pledge reuse that read
+ * instead of paying for a second full pass. Mutations update the row they
+ * changed in place before passing it back in.
+ */
+function lookupPledgeByToken_(magicToken, known) {
   const token = cleanString_(magicToken);
   if (!token) return null;
 
   const now = Date.now();
-  const mine = readPledges_().filter((pledge) => {
+  const mine = (known || readPledges_()).filter((pledge) => {
     if (pledge.magic_token !== token) return false;
     const expires = Date.parse(pledge.token_expires);
     return !isFinite(expires) || expires > now;
@@ -717,7 +750,9 @@ function cancelPledge_(magicToken, pledgeId) {
     found.sheet.getRange(found.rowNumber, headers.status + 1).setValue('Cancelled');
     clearPublicPayloadCache_();
 
-    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
+    // Mirror the write in memory so the reply needs no second full read.
+    found.pledge.status = 'Cancelled';
+    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken), found.pledges) };
   } finally {
     lock.releaseLock();
   }
@@ -733,7 +768,8 @@ function pledgeForToken_(magicToken, pledgeId) {
   const id = cleanString_(pledgeId);
   if (!token || !id) throw new Error('That link is not valid any more.');
 
-  const pledge = readPledges_().find((candidate) => candidate.pledge_id === id);
+  const pledges = readPledges_();
+  const pledge = pledges.find((candidate) => candidate.pledge_id === id);
   if (!pledge) throw new Error('We could not find that pledge.');
 
   const expires = Date.parse(pledge.token_expires);
@@ -744,7 +780,7 @@ function pledgeForToken_(magicToken, pledgeId) {
   const rowNumber = pledgeRowNumbersById_()[pledge.pledge_id];
   if (!rowNumber) throw new Error('We could not find that pledge.');
 
-  return { pledge, rowNumber, sheet: getSheet_(REGISTRY_CONFIG.pledgesSheet) };
+  return { pledge, pledges, rowNumber, sheet: getSheet_(REGISTRY_CONFIG.pledgesSheet) };
 }
 
 function amendPledge_(magicToken, pledgeId, amount) {
@@ -769,7 +805,10 @@ function amendPledge_(magicToken, pledgeId, amount) {
     found.sheet.getRange(found.rowNumber, headers.claimed_amount_sgd + 1).setValue('');
     clearPublicPayloadCache_();
 
-    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
+    found.pledge.amount_sgd = Math.round(newAmount * 100) / 100;
+    found.pledge.claims_paid_on = '';
+    found.pledge.claimed_amount_sgd = '';
+    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken), found.pledges) };
   } finally {
     lock.releaseLock();
   }
@@ -799,11 +838,14 @@ function markPledgeSent_(magicToken, pledgeId, amount) {
     if (paid > 100000) throw new Error('That amount looks like a typo. Please check it.');
 
     const headers = pledgeHeaderIndex_(found.sheet);
-    found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue(new Date().toISOString());
+    const claimedOn = new Date().toISOString();
+    found.sheet.getRange(found.rowNumber, headers.claims_paid_on + 1).setValue(claimedOn);
     found.sheet.getRange(found.rowNumber, headers.claimed_amount_sgd + 1).setValue(Math.round(paid * 100) / 100);
     clearPublicPayloadCache_();
 
-    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken)) };
+    found.pledge.claims_paid_on = claimedOn;
+    found.pledge.claimed_amount_sgd = Math.round(paid * 100) / 100;
+    return { ok: true, my_pledge: lookupPledgeByToken_(cleanString_(magicToken), found.pledges) };
   } finally {
     lock.releaseLock();
   }
@@ -1215,12 +1257,17 @@ function pledgeHeaderIndex_(sheet) {
   return index;
 }
 
-function refreshTokenExpiryForEmail_(email, token) {
+/**
+ * `known` is the caller's existing read of the sheet, reused rather than
+ * paying for a second full pass. Safe to omit the row just appended: it was
+ * written with this token and expiry already.
+ */
+function refreshTokenExpiryForEmail_(email, token, known) {
   const sheet = getSheet_(REGISTRY_CONFIG.pledgesSheet);
   const headers = pledgeHeaderIndex_(sheet);
   const expires = tokenExpiryIso_();
   const rowsById = pledgeRowNumbersById_();
-  readPledges_().forEach((pledge) => {
+  (known || readPledges_()).forEach((pledge) => {
     if (pledge.guest_email !== email) return;
     const rowNumber = rowsById[pledge.pledge_id];
     if (!rowNumber) return;

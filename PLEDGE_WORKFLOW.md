@@ -165,4 +165,4 @@ Item scraping still belongs to the **older** registry script bound to the same s
 | Repo | https://github.com/stellassx94/xjq-new-nest |
 | Spreadsheet | [Bishan Renovation](https://docs.google.com/spreadsheets/d/19fARddBTHQLFfhmUdToxM69infZVPKKr61WsL7gv65o/edit) |
 | Script editor | [New Nest Pledge Fund](https://script.google.com/d/1B8TpQGt6mKAqHN6p4PaHR2mlcmikSNAUVdUOftFQtAgwJ-d-0sXjKI1J/edit) |
-| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbyumQuwmlC48dL_peQWGgcYFpUGdl9xPTx-Y_ZhoW6RyNn3zXVh5mjd8I7u8Bb_0a3K/exec` |
+| Apps Script `/exec` URL | `https://script.google.com/macros/s/AKfycbz5038b55w1EvI5xUESgKAK_Oq11MwMyPygUiOHzLt4ajn0HnWNhCshofUhbJoL0Nzz/exec` |
