@@ -363,6 +363,36 @@
 
     .pledge-row:last-of-type { border-bottom: 0; }
 
+    /* Inline amount editor, in place of a system prompt dialog. */
+    .pledge-row-edit { display: block; }
+    .amend-form {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .amend-prefix {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .amend-form input {
+      width: 130px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+    }
+    .amend-form input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
     /* Holds the height of a real pledge row so nothing jumps when the answer
        arrives and this is replaced. */
     .skeleton-row {
@@ -903,6 +933,33 @@
     // move on. Deliberately not persisted — it is about this moment only.
     var NEW_PLEDGE_NOTE = "";
 
+    // The pledge whose amount is being edited inline, if any. window.prompt
+    // was doing this job: a system dialog that arrives with an empty box, does
+    // not say what the current amount is, and cannot be corrected once wrong.
+    var AMENDING_ID = "";
+
+    /**
+     * Move the headline total and the item coverage by hand, without asking
+     * the server what it thinks.
+     *
+     * The rule for this page is that nothing waits on Apps Script, and the
+     * total was the last thing still doing so — it sat on the old figure for
+     * up to a minute after an amend, because the server memoises the public
+     * payload for 60s and a request already in flight can repopulate that
+     * cache from a read taken before the write. The user sees a pledge of
+     * S$6,000 above a total that does not contain it.
+     *
+     * loadRegistry still runs and still wins; this only covers the seconds in
+     * between, which are the seconds someone is actually looking.
+     */
+    function adjustTotals(amountDelta, countDelta) {
+      if (!state.totals) return;
+      state.totals.pledged_sgd = Math.max(0, (Number(state.totals.pledged_sgd) || 0) + amountDelta);
+      state.totals.pledge_count = Math.max(0, (Number(state.totals.pledge_count) || 0) + (countDelta || 0));
+      renderProgress();
+      renderItems();
+    }
+
     var params = new URLSearchParams(window.location.search);
 
     function clean(value, max) {
@@ -1335,6 +1392,21 @@
           actions.push('<button class="btn-link" type="button" data-cancel="' + id + '">Cancel</button>');
         }
 
+        // Editing this one: swap the row for an input carrying the current
+        // amount, so changing S$300 to S$600 is a keystroke rather than a
+        // recall test.
+        if (pledge.pledge_id === AMENDING_ID) {
+          return '<div class="pledge-row pledge-row-edit">'
+            + '<form class="amend-form" data-amend-form="' + id + '">'
+            + '<label class="sr-only" for="amendAmount">New amount in SGD</label>'
+            + '<span class="amend-prefix">S$</span>'
+            + '<input id="amendAmount" type="number" min="1" step="1" inputmode="decimal"'
+            + ' value="' + escapeHtml(String(pledge.amount_sgd)) + '" required>'
+            + '<button class="btn" type="submit">Save</button>'
+            + '<button class="btn-link" type="button" data-amend-cancel="1">Never mind</button>'
+            + "</form></div>";
+        }
+
         // Once sent, lead with what they gave, not what they promised.
         var figure = done ? paidAmount(pledge) : pledge.amount_sgd;
         var note = done && paidAmount(pledge) !== Number(pledge.amount_sgd)
@@ -1613,6 +1685,9 @@
       applied = true;
       noteNewPledge(provisional);
       renderMine();
+      // The headline figure and the item coverage move with it, rather than
+      // sitting on the old number until the server catches up.
+      adjustTotals(payload.amount_sgd, before ? 0 : 1);
       $("mineSection").scrollIntoView({ behavior: "smooth", block: "start" });
 
       var startedAt = MINE_VERSION;
@@ -1745,11 +1820,12 @@
 
       var sent = target.closest("[data-sent]");
       if (sent) {
-        // Prefilled with what they pledged, so the usual case is one tap and
-        // sending a different amount is still possible.
-        var said = window.prompt("How much did you send? (SGD)", sent.dataset.amount || "");
-        if (said === null) return;
-        var paid = Number(String(said).replace(/[^0-9.]/g, ""));
+        // One tap, at the amount they pledged. This used to open a system
+        // prompt asking how much they sent — a question they had already
+        // answered, in a dialog they had to dismiss, at the exact moment the
+        // page is meant to say "you are done". Sending a different amount is
+        // still possible: change the amount first, then tap this.
+        var paid = Number(sent.dataset.amount);
         if (!isFinite(paid) || paid <= 0) { showToast("That is not an amount we can use."); return; }
         var sentId = sent.dataset.sent;
         sent.disabled = true;
@@ -1766,23 +1842,16 @@
 
       var amend = target.closest("[data-amend]");
       if (amend) {
-        var next = window.prompt("What would you like to change it to? (SGD)");
-        if (next === null) return;
-        var amount = Number(String(next).replace(/[^0-9.]/g, ""));
-        if (!isFinite(amount) || amount <= 0) { showToast("That is not an amount we can use."); return; }
-        var amendId = amend.dataset.amend;
-        amend.disabled = true;
-        mutate({ action: "amend", magic_token: MAGIC_TOKEN, pledge_id: amendId, amount_sgd: amount },
-          "Updated.", amend, function (draft) {
-            var pledge = findPledge(draft, amendId);
-            if (pledge) {
-              pledge.amount_sgd = amount;
-              // Mirrors amendPledge_ server-side: a new amount voids any
-              // earlier "I've sent it" against the old one.
-              pledge.claims_paid_on = "";
-              pledge.claimed_amount_sgd = "";
-            }
-          });
+        AMENDING_ID = amend.dataset.amend;
+        renderMine();
+        var box = $("amendAmount");
+        if (box) { box.focus(); box.select(); }
+        return;
+      }
+
+      if (target.closest("[data-amend-cancel]")) {
+        AMENDING_ID = "";
+        renderMine();
         return;
       }
 
@@ -1791,12 +1860,43 @@
         if (!window.confirm("Cancel this pledge?")) return;
         var cancelId = cancel.dataset.cancel;
         cancel.disabled = true;
+        var cancelled = findPledge(state.mine, cancelId);
+        var cancelledBy = cancelled ? Number(cancelled.amount_sgd) || 0 : 0;
         mutate({ action: "cancel", magic_token: MAGIC_TOKEN, pledge_id: cancelId },
           "Cancelled. No hard feelings.", cancel, function (draft) {
             var pledge = findPledge(draft, cancelId);
             if (pledge) pledge.status = "Cancelled";
           });
+        adjustTotals(-cancelledBy, -1);
       }
+    });
+
+    // Submitting the inline amount editor.
+    $("mineRows").addEventListener("submit", function (event) {
+      var form = event.target.closest("[data-amend-form]");
+      if (!form) return;
+      event.preventDefault();
+
+      var amendId = form.dataset.amendForm;
+      var amount = Number($("amendAmount").value);
+      if (!isFinite(amount) || amount <= 0) { showToast("Please enter an amount greater than zero."); return; }
+
+      var current = findPledge(state.mine, amendId);
+      var was = current ? Number(current.amount_sgd) || 0 : 0;
+
+      AMENDING_ID = "";
+      mutate({ action: "amend", magic_token: MAGIC_TOKEN, pledge_id: amendId, amount_sgd: amount },
+        "Updated.", null, function (draft) {
+          var pledge = findPledge(draft, amendId);
+          if (pledge) {
+            pledge.amount_sgd = amount;
+            // Mirrors amendPledge_ server-side: a new amount voids any
+            // earlier "I've sent it" against the old one.
+            pledge.claims_paid_on = "";
+            pledge.claimed_amount_sgd = "";
+          }
+        });
+      adjustTotals(amount - was, 0);
     });
 
     /**
@@ -1820,6 +1920,7 @@
       // Its "Chip in again" link is also the only way back to the form once
       // noteNewPledge has hidden it, so bring the form back as the banner goes.
       NEW_PLEDGE_NOTE = "";
+      AMENDING_ID = "";
       showPledgeForm();
 
       if (apply && state.mine) {

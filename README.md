@@ -20,6 +20,8 @@ So:
 - **Never make the user wait for a second round trip.** A write already returns the updated row — use it. Do not re-fetch to find out what you were just told. This is what made a pledge sit at "Saving…" for six to nine seconds: the POST answered in three, then the code waited for a fresh `registry` call to notice.
 - **Never leave a slot empty while checking.** A device that has pledged before shows a placeholder, not the "Pledged already?" panel. Showing someone the stranger state and then correcting it reads as a bug, not as loading.
 - **Anything public and non-private is served from `docs/data.json`**, not the API — same CDN as the page, ~30ms.
+- **The shared total moves with the local change too.** It was the last thing still waiting: the backend memoises the public payload for 60s, and a request already in flight can repopulate that cache from a read taken *before* the write. So a friend saw their own S$6,000 pledge above a total that did not contain it. `adjustTotals()` moves the headline figure and the item coverage immediately; `loadRegistry` still wins a moment later.
+- **No `window.prompt` / `confirm` for anything with a value in it.** A system dialog arrives empty, cannot show the current amount, cannot be styled, and blocks the page. Amounts are edited inline, prefilled. "I've sent it" is one tap at the pledged amount — it used to ask how much, which is a question they had already answered.
 
 ### Failure is not the same as rejection
 
