@@ -826,7 +826,9 @@
     // when they pledged on this device.
     var MAGIC_TOKEN = clean(params.get("t")) || recall(STORE_TOKEN);
 
-    var state = { settings: {}, totals: {}, items: [], paynow: {}, mine: null };
+    // totals starts null, not {}. An empty object is truthy, which silently
+    // made the snapshot render a no-op and kept the page slow.
+    var state = { settings: {}, totals: null, items: [], paynow: {}, mine: null };
 
     function $(id) { return document.getElementById(id); }
 
