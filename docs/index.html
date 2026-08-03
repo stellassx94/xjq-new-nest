@@ -472,6 +472,43 @@
     }
 
     /*
+      Funding marks. Quiet on purpose: this page has no target and no overall
+      bar, and a grid of half-empty meters would put back exactly the pressure
+      taking the target away removed. A covered item says so; the one filling
+      shows a single hairline; everything below shows nothing.
+    */
+    .item-mark {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--good);
+    }
+    .item-mark-part { color: var(--muted); }
+
+    .item-bar {
+      display: block;
+      margin-top: 6px;
+      height: 3px;
+      max-width: 180px;
+      border-radius: 999px;
+      background: var(--soft);
+      overflow: hidden;
+    }
+    .item-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    /* Covered items have been dealt with, so they recede rather than shout. */
+    .item--covered .item-art { border-color: var(--good); }
+    .item--covered .item-name { color: var(--muted); }
+
+    /*
       Product shots come from a dozen shops at a dozen sizes and aspect ratios.
       A fixed pixel height that clips, with the image sized by max-width /
       max-height rather than width:100%/height:100%, is the only way one of
@@ -1076,6 +1113,36 @@
       }
     }
 
+    /**
+     * Walk the list in the sheet's own sort_order and pour the pot into it,
+     * one item at a time. Returns a map of item id -> how much of that item is
+     * covered, so a row can show that it is already accounted for.
+     *
+     * Deliberately restrained. There is no target on this page and no progress
+     * bar, for a reason Stella gave plainly: she does not want friends feeling
+     * they owe a share. So an item that is covered says so and nothing more —
+     * no percentage, no "S$240 to go", no count of what is still unfunded.
+     * Rows further down the list show nothing at all rather than a row of
+     * empty bars, which would read as a list of demands.
+     *
+     * Only the item currently filling shows a bar, and only because that is
+     * the one place the number is good news rather than a request.
+     */
+    function fundingByItem() {
+      var pot = state.totals ? Number(state.totals.pledged_sgd) || 0 : 0;
+      var covered = {};
+      if (!pot) return covered;
+
+      state.items.forEach(function (item) {
+        var price = Number(item.price_sgd) || 0;
+        if (price <= 0 || pot <= 0) return;
+        var take = Math.min(pot, price);
+        covered[item.id] = { paid: take, price: price, done: take >= price };
+        pot -= take;
+      });
+      return covered;
+    }
+
     function renderItems() {
       if (!state.items.length) {
         $("itemsSection").classList.add("hidden");
@@ -1083,6 +1150,8 @@
       }
 
       $("itemsSection").classList.remove("hidden");
+
+      var funding = fundingByItem();
 
       // Grouped under the room they belong to, in the order the sheet's
       // sort_order gives us. A room heads its group once instead of being
@@ -1102,17 +1171,33 @@
             ? '<img src="' + escapeHtml(item.image) + '" alt="" loading="lazy" decoding="async">'
             : '<span class="item-art-empty">' + escapeHtml((item.name || "?").charAt(0)) + "</span>";
 
+          var fund = funding[item.id];
+          var mark = "";
+          var klass = "item";
+
+          if (fund && fund.done) {
+            klass += " item--covered";
+            mark = '<span class="item-mark">Covered — thank you</span>';
+          } else if (fund && fund.paid > 0) {
+            klass += " item--filling";
+            var pct = Math.max(4, Math.round((fund.paid / fund.price) * 100));
+            mark = '<span class="item-mark item-mark-part">On its way</span>'
+              + '<span class="item-bar" role="presentation">'
+              + '<span style="width:' + pct + '%"></span></span>';
+          }
+
           var detail = item.description || item.reference_title || "";
           var body = '<div class="item-art">' + art + "</div>"
             + '<div class="item-text">'
             + '<h3 class="item-name">' + escapeHtml(item.name) + "</h3>"
             + (detail ? "<p>" + escapeHtml(detail) + "</p>" : "")
+            + mark
             + "</div>";
 
           // Links are already restricted to http(s) server-side by safePublicUrl_.
           return item.link
-            ? '<a class="item" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">' + body + "</a>"
-            : '<div class="item">' + body + "</div>";
+            ? '<a class="' + klass + '" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">' + body + "</a>"
+            : '<div class="' + klass + '">' + body + "</div>";
         }).join("");
 
         return '<p class="room-head">' + escapeHtml(room) + "</p>" + rows;
