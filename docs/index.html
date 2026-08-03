@@ -1042,7 +1042,14 @@
       var section = $("mineSection");
       var recall = $("returnSection");
 
-      if (!mine || !mine.pledges || !mine.pledges.length) {
+      // A cancelled pledge is not something you have; it is something you
+      // decided against. Hiding it is also the clearest confirmation that the
+      // cancel worked — the row simply goes.
+      var visible = mine && mine.pledges
+        ? mine.pledges.filter(function (pledge) { return pledge.status !== "Cancelled"; })
+        : [];
+
+      if (!mine || !visible.length) {
         section.classList.add("hidden");
         // We do not know this visitor. Offer the way back in rather than
         // silently showing them a blank pledge form they have already filled.
@@ -1061,7 +1068,7 @@
       renderBanner();
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
 
-      var live = mine.pledges.filter(function (pledge) { return pledge.status !== "Cancelled"; });
+      var live = visible;
       var settled = live.filter(isSettled);
       var outstanding = live.filter(function (pledge) { return !isSettled(pledge); });
       var settledTotal = settled.reduce(function (sum, pledge) { return sum + paidAmount(pledge); }, 0);
@@ -1074,8 +1081,7 @@
       if (outstandingTotal) summary.push(money(outstandingTotal) + " still to transfer");
       $("mineSubtitle").textContent = summary.join(" · ") || "Only you can see this.";
 
-      $("mineRows").innerHTML = mine.pledges.map(function (pledge) {
-        var live = pledge.status !== "Cancelled";
+      $("mineRows").innerHTML = visible.map(function (pledge) {
         var done = isSettled(pledge);
         var id = escapeHtml(pledge.pledge_id);
         var actions = [];
@@ -1105,9 +1111,7 @@
       // Only show payment instructions to someone who still has something to
       // pay. Showing the QR to a friend who already transferred — which is
       // what this did — reads as though we did not believe them.
-      var unpaid = mine.pledges.filter(function (pledge) {
-        return pledge.status !== "Cancelled" && !isSettled(pledge);
-      });
+      var unpaid = visible.filter(function (pledge) { return !isSettled(pledge); });
       $("minePayNow").innerHTML = unpaid.length
         ? '<div class="paynow" style="margin-top:18px;">' + payNowHtml(unpaid[0], mine.paynow) + "</div>"
         : whatsAppBlock("Anything to ask us?");
@@ -1409,9 +1413,16 @@
         if (said === null) return;
         var paid = Number(String(said).replace(/[^0-9.]/g, ""));
         if (!isFinite(paid) || paid <= 0) { showToast("That is not an amount we can use."); return; }
+        var sentId = sent.dataset.sent;
         sent.disabled = true;
-        mutate({ action: "sent", magic_token: MAGIC_TOKEN, pledge_id: sent.dataset.sent, amount_sgd: paid },
-          "Thank you, truly.", sent);
+        mutate({ action: "sent", magic_token: MAGIC_TOKEN, pledge_id: sentId, amount_sgd: paid },
+          "Thank you, truly.", sent, function (draft) {
+            var pledge = findPledge(draft, sentId);
+            if (pledge) {
+              pledge.claims_paid_on = new Date().toISOString();
+              pledge.claimed_amount_sgd = paid;
+            }
+          });
         return;
       }
 
@@ -1421,38 +1432,92 @@
         if (next === null) return;
         var amount = Number(String(next).replace(/[^0-9.]/g, ""));
         if (!isFinite(amount) || amount <= 0) { showToast("That is not an amount we can use."); return; }
+        var amendId = amend.dataset.amend;
         amend.disabled = true;
-        mutate({ action: "amend", magic_token: MAGIC_TOKEN, pledge_id: amend.dataset.amend, amount_sgd: amount },
-          "Updated. Your reference code stays the same.", amend);
+        mutate({ action: "amend", magic_token: MAGIC_TOKEN, pledge_id: amendId, amount_sgd: amount },
+          "Updated. Your reference code stays the same.", amend, function (draft) {
+            var pledge = findPledge(draft, amendId);
+            if (pledge) {
+              pledge.amount_sgd = amount;
+              // Mirrors amendPledge_ server-side: a new amount voids any
+              // earlier "I've sent it" against the old one.
+              pledge.claims_paid_on = "";
+              pledge.claimed_amount_sgd = "";
+            }
+          });
         return;
       }
 
       var cancel = target.closest("[data-cancel]");
       if (cancel) {
         if (!window.confirm("Cancel this pledge?")) return;
+        var cancelId = cancel.dataset.cancel;
         cancel.disabled = true;
-        mutate({ action: "cancel", magic_token: MAGIC_TOKEN, pledge_id: cancel.dataset.cancel },
-          "Cancelled. No hard feelings.", cancel);
+        mutate({ action: "cancel", magic_token: MAGIC_TOKEN, pledge_id: cancelId },
+          "Cancelled. No hard feelings.", cancel, function (draft) {
+            var pledge = findPledge(draft, cancelId);
+            if (pledge) pledge.status = "Cancelled";
+          });
       }
     });
 
-    function mutate(body, successMessage, button) {
-      apiPost(body)
+    /**
+     * Apply the change on screen first, then tell the server.
+     *
+     * A write to Apps Script takes several seconds — it reopens the
+     * spreadsheet, re-reads every pledge, writes, then reads them all again.
+     * Waiting for that before moving the UI made cancelling or amending feel
+     * broken. The change is applied locally, and reverted with an apology if
+     * the server disagrees.
+     *
+     * `apply` receives a deep copy of state.mine and mutates it in place.
+     */
+    function mutate(body, successMessage, button, apply) {
+      var previous = state.mine ? JSON.parse(JSON.stringify(state.mine)) : null;
+
+      if (apply && state.mine) {
+        var draft = JSON.parse(JSON.stringify(state.mine));
+        apply(draft);
+        state.mine = draft;
+        remember(STORE_MINE, JSON.stringify(draft));
+        renderMine();
+        showToast(successMessage);
+      }
+
+      return apiPost(body)
         .then(function (response) {
           if (!response || !response.ok) {
+            state.mine = previous;
+            if (previous) remember(STORE_MINE, JSON.stringify(previous));
+            renderMine();
             showToast((response && response.error) || "That did not work.");
             if (button) button.disabled = false;
             return;
           }
+          // The server's version is authoritative; quietly replace ours.
           state.mine = response.my_pledge;
+          if (state.mine) {
+            remember(STORE_MINE, JSON.stringify(state.mine));
+          } else {
+            forget(STORE_MINE);
+          }
           renderMine();
-          showToast(successMessage);
+          if (!apply) showToast(successMessage);
           loadRegistry();
         })
         .catch(function (error) {
+          state.mine = previous;
+          if (previous) remember(STORE_MINE, JSON.stringify(previous));
+          renderMine();
           if (button) button.disabled = false;
           showToast(error && error.message ? error.message : "That did not work.");
         });
+    }
+
+    function findPledge(mine, id) {
+      return (mine.pledges || []).filter(function (pledge) {
+        return pledge.pledge_id === id;
+      })[0];
     }
 
     function copyText(text) {
