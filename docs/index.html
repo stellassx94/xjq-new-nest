@@ -341,7 +341,7 @@
 
     .paynow h3 { font-size: 1.5rem; color: var(--ink); }
     .paynow p { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
-    .paynow img { width: 100%; max-width: 280px; margin: 16px auto 0; }
+    .paynow img { width: 100%; max-width: 300px; margin: 16px auto 0; }
 
     .steps { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
     .steps li { margin: 6px 0; }
@@ -465,9 +465,9 @@
       against, so tall images escaped the box.
     */
     .item-art {
-      flex: 0 0 96px;
-      width: 96px;
-      height: 96px;
+      flex: 0 0 84px;
+      width: 84px;
+      height: 84px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -563,10 +563,15 @@
 
     /* ---------- two-column catalogue ---------- */
 
+    /*
+      The catalogue is context; chipping in is the point. So the catalogue
+      takes a fixed, readable column and the rail gets everything left over,
+      which makes the side you act on the wider of the two.
+    */
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 400px;
-      gap: clamp(24px, 4vw, 56px);
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: clamp(24px, 4vw, 52px);
       align-items: start;
       padding-bottom: 48px;
     }
@@ -594,6 +599,10 @@
       the rail is 340px — they have to stack there regardless of viewport.
     */
     .rail .pledge-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    @media (min-width: 1120px) {
+      .rail .pledge-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; }
+      .rail .paynow { border-top: 0; padding-top: 0; }
+    }
     .rail .recall-panel { display: block; }
     .rail .recall-panel > * { margin-top: 12px; }
     .rail .recall-panel > *:first-child { margin-top: 0; }
