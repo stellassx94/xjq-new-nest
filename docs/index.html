@@ -779,6 +779,14 @@
     // 2-10s Apps Script call. Their own data, on their own device.
     var STORE_MINE = "nest-mine";
 
+    // Marks the row shown between hitting Pledge and the server answering.
+    // It has no server id yet, so it offers no buttons.
+    var PENDING_ID = "pending";
+
+    // Bumped on every local change to a pledge. Any request that was already
+    // in flight when it changed must not overwrite the newer local state.
+    var MINE_VERSION = 0;
+
     // Set right after pledging, shown above the pledge list, cleared once they
     // move on. Deliberately not persisted — it is about this moment only.
     var NEW_PLEDGE_NOTE = "";
@@ -1046,9 +1054,8 @@
       renderBanner();
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
 
-      var live = visible;
-      var settled = live.filter(isSettled);
-      var outstanding = live.filter(function (pledge) { return !isSettled(pledge); });
+      var settled = visible.filter(isSettled);
+      var outstanding = visible.filter(function (pledge) { return !isSettled(pledge); });
       var settledTotal = settled.reduce(function (sum, pledge) { return sum + paidAmount(pledge); }, 0);
       var outstandingTotal = outstanding.reduce(function (sum, pledge) { return sum + Number(pledge.amount_sgd || 0); }, 0);
 
@@ -1060,15 +1067,27 @@
       $("mineSubtitle").textContent = summary.join(" · ") || "Only you can see this.";
 
       $("mineRows").innerHTML = visible.map(function (pledge) {
+        // Everything in `visible` is already non-cancelled, so there is no
+        // "is it live" test left to make here.
         var done = isSettled(pledge);
         var id = escapeHtml(pledge.pledge_id);
         var actions = [];
 
-        if (live && !done) {
+        // Still on its way to the sheet. Every action needs a real pledge id,
+        // so offer none rather than buttons that would fail.
+        if (pledge.pledge_id === PENDING_ID) {
+          return '<div class="pledge-row"><div>'
+            + "<strong>" + escapeHtml(money(pledge.amount_sgd)) + "</strong> "
+            + '<span class="tag">Saving&hellip;</span>'
+            + '<p class="hint">Scan the QR below whenever you are ready.</p>'
+            + "</div></div>";
+        }
+
+        if (!done) {
           actions.push('<button class="btn" type="button" data-sent="' + id
             + '" data-amount="' + escapeHtml(String(pledge.amount_sgd)) + '">I\'ve sent it</button>');
         }
-        if (live && pledge.status !== "Received") {
+        if (pledge.status !== "Received") {
           actions.push('<button class="btn-link" type="button" data-amend="' + id + '">Change amount</button>');
           actions.push('<button class="btn-link" type="button" data-cancel="' + id + '">Cancel</button>');
         }
@@ -1198,6 +1217,11 @@
     }
 
     function loadRegistry() {
+      // Snapshot the version this request belongs to. A page-load fetch takes
+      // 2-3s; if you cancel a pledge while one is in flight, its stale reply
+      // would land afterwards and put the row back for a moment before the
+      // cancel's own reply removed it again.
+      var startedAt = MINE_VERSION;
       return apiGet({ api: "registry", t: MAGIC_TOKEN, k: KEY })
         .then(function (response) {
           if (response && response.locked) {
@@ -1215,6 +1239,11 @@
 
           applyRegistry(response.registry);
           remember(STORE_PAYLOAD, JSON.stringify(response.registry));
+
+          // Someone changed something locally while this was in flight, so
+          // this answer is already out of date. The totals above are still
+          // worth taking; their own pledges are not.
+          if (startedAt !== MINE_VERSION) return;
 
           state.mine = response.my_pledge || null;
           // A token that no longer resolves is a dead bookmark; drop it.
@@ -1264,6 +1293,7 @@
       var errorBox = $("pledgeError");
       errorBox.classList.add("hidden");
 
+      var applied = false;
       var payload = {
         action: "pledge",
         guest_name: $("guestName").value.trim(),
@@ -1279,11 +1309,41 @@
 
       button.disabled = true;
       button.textContent = "Sending…";
+      remember(STORE_EMAIL, payload.guest_email);
+
+      // Show the pledge and the QR straight away rather than making them watch
+      // a spinner for five seconds. The server still assigns the real id and
+      // token; until it answers, this row carries a provisional id and offers
+      // no buttons, because those actions need ids only the server can mint.
+      // They are on their way to their banking app anyway.
+      var provisional = {
+        pledge_id: PENDING_ID,
+        guest_name: payload.guest_name,
+        amount_sgd: payload.amount_sgd,
+        message: payload.message,
+        status: "Pledged",
+        claims_paid_on: "",
+        claimed_amount_sgd: "",
+        pledged_on: new Date().toISOString(),
+      };
+      var before = state.mine ? JSON.parse(JSON.stringify(state.mine)) : null;
+      state.mine = {
+        guest_name: payload.guest_name,
+        guest_email: payload.guest_email,
+        pledges: (before ? before.pledges : []).concat([provisional]),
+        paynow: (before && before.paynow) || state.paynow,
+      };
+      MINE_VERSION += 1;
+      applied = true;
+      noteNewPledge(provisional);
+      renderMine();
+      $("mineSection").scrollIntoView({ behavior: "smooth", block: "start" });
+
+      var startedAt = MINE_VERSION;
 
       apiPost(payload)
         .then(function (response) {
           if (!response || !response.ok) return fail((response && response.error) || "Something went wrong.");
-          remember(STORE_EMAIL, payload.guest_email);
           if (response.magic_token) {
             // Both matter: storage is for the next visit, the variable is for
             // the reload happening right now. Forgetting the second one is why
@@ -1291,23 +1351,27 @@
             remember(STORE_TOKEN, response.magic_token);
             MAGIC_TOKEN = response.magic_token;
           }
+          if (startedAt !== MINE_VERSION) return;
           noteNewPledge(response.pledge);
-          // renderMine inside loadRegistry paints the new row, the QR and the
-          // button. Scroll only once it has, or we scroll to an empty box.
-          loadRegistry().then(function () {
-            var mine = $("mineSection");
-            if (!mine.classList.contains("hidden")) {
-              mine.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-          });
+          loadRegistry();
         })
         .catch(function (error) { fail(error && error.message ? error.message : "Something went wrong."); });
 
       function fail(message) {
+        // Only roll back if we actually got as far as showing the row. The
+        // validation checks above call this before `before` is assigned.
+        if (applied) {
+          state.mine = before;
+          MINE_VERSION += 1;
+          NEW_PLEDGE_NOTE = "";
+          renderMine();
+          $("pledgeBody").classList.remove("hidden");
+        }
         button.disabled = false;
         button.textContent = "Pledge";
         errorBox.textContent = message;
         errorBox.classList.remove("hidden");
+        $("pledgeSection").scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
 
@@ -1453,10 +1517,13 @@
         var draft = JSON.parse(JSON.stringify(state.mine));
         apply(draft);
         state.mine = draft;
+        MINE_VERSION += 1;
         remember(STORE_MINE, JSON.stringify(draft));
         renderMine();
         showToast(successMessage);
       }
+
+      var startedAt = MINE_VERSION;
 
       return apiPost(body)
         .then(function (response) {
@@ -1468,6 +1535,10 @@
             if (button) button.disabled = false;
             return;
           }
+          // Another change happened while this was in flight; that newer local
+          // state wins, and its own reply will settle things.
+          if (startedAt !== MINE_VERSION) return;
+
           // The server's version is authoritative; quietly replace ours.
           state.mine = response.my_pledge;
           if (state.mine) {
