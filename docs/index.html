@@ -728,9 +728,9 @@
               <h3>How it works</h3>
               <ol class="steps">
                 <li>Tell us what you would like to give.</li>
-                <li>We show you a <strong>PayNow QR</strong> and a <strong>reference code</strong>, and email you both.</li>
-                <li>Transfer whenever suits you, with that code in the reference field.</li>
-                <li>Tap <strong>I've sent it</strong> so we know to look out for it.</li>
+                <li>We show you a <strong>PayNow QR</strong>, and email you a link back to this page.</li>
+                <li>Transfer whenever suits you.</li>
+                <li>Tap <strong>I've sent it</strong> and you are done — nothing to wait for.</li>
                 <li>We buy the things and send you photos.</li>
               </ol>
             </aside>
@@ -1409,7 +1409,7 @@
         var amendId = amend.dataset.amend;
         amend.disabled = true;
         mutate({ action: "amend", magic_token: MAGIC_TOKEN, pledge_id: amendId, amount_sgd: amount },
-          "Updated. Your reference code stays the same.", amend, function (draft) {
+          "Updated.", amend, function (draft) {
             var pledge = findPledge(draft, amendId);
             if (pledge) {
               pledge.amount_sgd = amount;
