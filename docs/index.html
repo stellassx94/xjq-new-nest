@@ -419,6 +419,18 @@
     .tag-received { background: #dfeadf; color: #2c5136; }
     .tag-cancelled { background: #ece7e2; color: var(--muted); }
 
+    /* Success note for a pledge just made. The list below it is the record. */
+    .banner {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: 1px solid #c6e0cd;
+      border-radius: 8px;
+      background: #eef6f0;
+      color: var(--green);
+      font-size: 0.9rem;
+    }
+    .banner .btn-link { margin-left: 4px; }
+
     /* ---------- returning guest ---------- */
 
     .recall-panel {
@@ -656,6 +668,7 @@
             <h2 id="mineTitle">Your pledge</h2>
             <p id="mineSubtitle"></p>
           </div>
+          <div id="mineBanner" class="banner hidden"></div>
           <div id="mineRows"></div>
           <div id="minePayNow"></div>
           <p class="hint">
@@ -689,10 +702,6 @@
         </div>
       </section>
 
-      <!-- Confirmation lives in its own section so the form is only ever
-           hidden, never destroyed. Replacing #pledgeSection used to delete
-           elements that later renders still reached for. -->
-      <section id="confirmSection" class="hidden"></section>
 
       <section id="pledgeSection">
         <div id="pledgeClosed" class="panel hidden"></div>
@@ -789,6 +798,10 @@
     // Kept only to prefill the "send me my link" field, so a returning guest
     // does not have to remember which address they used.
     var STORE_EMAIL = "nest-email";
+
+    // Set right after pledging, shown above the pledge list, cleared once they
+    // move on. Deliberately not persisted — it is about this moment only.
+    var NEW_PLEDGE_NOTE = "";
 
     var params = new URLSearchParams(window.location.search);
 
@@ -908,7 +921,13 @@
     }
 
     function renderProgress() {
-      var totals = state.totals || {};
+      var totals = state.totals;
+
+      // The static snapshot deliberately carries no totals — money and names
+      // must not sit in a public repo. Keep the skeleton up rather than
+      // flashing S$0 at someone before the live figure arrives.
+      if (!totals) return;
+
       var pledged = Number(totals.pledged_sgd) || 0;
 
       $("progressLoading").classList.add("hidden");
@@ -1032,6 +1051,7 @@
       section.classList.remove("hidden");
       $("navReturn").classList.add("hidden");
       $("navMine").classList.remove("hidden");
+      renderBanner();
       $("mineTitle").textContent = "Hi " + (mine.guest_name || "").split(" ")[0] + ", here is your pledge";
 
       var live = mine.pledges.filter(function (pledge) { return pledge.status !== "Cancelled"; });
@@ -1086,25 +1106,29 @@
         : whatsAppBlock("Anything to ask us?");
     }
 
-    function renderConfirmation(pledge, paynow) {
-      // The button lives right here, where they land when they come back from
-      // their banking app — not somewhere further up the page to go hunting for.
+    /**
+     * A pledge just made. There used to be a whole second panel here that
+     * repeated the QR, the reference and the "I've sent it" button already
+     * rendered by renderMine. Harmless while you had no other pledges, and
+     * nonsense the moment you had one. The list below is the only record now;
+     * this is just a note pointing at the row that appeared.
+     */
+    function noteNewPledge(pledge) {
       $("pledgeBody").classList.add("hidden");
-      $("confirmSection").classList.remove("hidden");
-      $("confirmSection").innerHTML = '<div class="section-head">'
-        + "<h2>Thank you, " + escapeHtml((pledge.guest_name || "").split(" ")[0]) + "</h2>"
-        + "<p>Your pledge of <strong>" + escapeHtml(money(pledge.amount_sgd))
-        + "</strong> is noted, and we have emailed you these details too.</p></div>"
-        + '<div class="panel"><div class="paynow">' + payNowHtml(pledge, paynow) + "</div>"
-        + '<div style="margin-top:18px;">'
-        + '<button class="btn" type="button" data-sent="' + escapeHtml(pledge.pledge_id)
-        + '" data-amount="' + escapeHtml(String(pledge.amount_sgd)) + '">'
-        + "I&rsquo;ve sent it</button>"
-        + '<p class="hint">Tap this once you have transferred and you are done — '
-        + "nothing else to wait for. You can come back to this page any time.</p>"
-        + whatsAppBlock("Something not right?")
-        + "</div></div>";
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      NEW_PLEDGE_NOTE = "Pledge added — " + money(pledge.amount_sgd)
+        + ", reference " + pledge.reference_code
+        + ". We have emailed you the details. The PayNow QR is below.";
+    }
+
+    function renderBanner() {
+      var banner = $("mineBanner");
+      if (!NEW_PLEDGE_NOTE) {
+        banner.classList.add("hidden");
+        return;
+      }
+      banner.classList.remove("hidden");
+      banner.innerHTML = escapeHtml(NEW_PLEDGE_NOTE)
+        + '<button class="btn-link" type="button" id="againBtn">Chip in again</button>';
     }
 
     /* ---------- loading ---------- */
@@ -1120,7 +1144,9 @@
 
     function applyRegistry(registry) {
       state.settings = registry.settings || {};
-      state.totals = registry.totals || {};
+      // null, not {} — an empty object is truthy and would defeat the guard in
+      // renderProgress that keeps the skeleton up for the totals-free snapshot.
+      state.totals = registry.totals || null;
       state.items = registry.items || [];
       state.paynow = {
         number: state.settings.paynow_number,
@@ -1137,14 +1163,35 @@
      * a complete page immediately instead of watching the Apps Script cold
      * start. The live fetch then overwrites it.
      */
-    function renderCachedRegistry() {
+    /**
+     * First paint, before the API is asked anything.
+     *
+     * Apps Script takes 2-3s to answer even when its own cache is warm — that
+     * is its floor, not something more caching fixes. Everything that is not
+     * money or names is therefore served from the same CDN as this page, which
+     * answers in tens of milliseconds.
+     *
+     * Order matters: a remembered payload is richer than the snapshot because
+     * it has totals, so it wins. Either way loadRegistry overwrites both.
+     */
+    function renderFirstPaint() {
       var raw = recall(STORE_PAYLOAD);
-      if (!raw) return;
-      try {
-        applyRegistry(JSON.parse(raw));
-      } catch (error) {
-        forget(STORE_PAYLOAD);
+      if (raw) {
+        try {
+          applyRegistry(JSON.parse(raw));
+          return Promise.resolve();
+        } catch (error) {
+          forget(STORE_PAYLOAD);
+        }
       }
+
+      return fetch("data.json", { cache: "no-cache" })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (snapshot) {
+          // Only if the live call has not already landed and rendered.
+          if (snapshot && !state.totals) applyRegistry(snapshot);
+        })
+        .catch(function () { /* No snapshot yet is fine; the API still runs. */ });
     }
 
     function loadRegistry() {
@@ -1236,8 +1283,15 @@
             remember(STORE_TOKEN, response.magic_token);
             MAGIC_TOKEN = response.magic_token;
           }
-          renderConfirmation(response.pledge, response.paynow);
-          loadRegistry();
+          noteNewPledge(response.pledge);
+          // renderMine inside loadRegistry paints the new row, the QR and the
+          // button. Scroll only once it has, or we scroll to an empty box.
+          loadRegistry().then(function () {
+            var mine = $("mineSection");
+            if (!mine.classList.contains("hidden")) {
+              mine.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          });
         })
         .catch(function (error) { fail(error && error.message ? error.message : "Something went wrong."); });
 
@@ -1299,6 +1353,25 @@
 
       var copy = target.closest("[data-copy]");
       if (copy) { copyText(copy.dataset.copy); return; }
+
+      if (target.closest("#againBtn")) {
+        NEW_PLEDGE_NOTE = "";
+        renderBanner();
+        $("pledgeBody").classList.remove("hidden");
+        // Name and email stay — they just told us. Only the amount and note
+        // are per-pledge. The button is reset because the last submit left it
+        // disabled and reading "Sending…" behind the hidden form.
+        $("amount").value = "";
+        $("message").value = "";
+        $("pledgeError").classList.add("hidden");
+        $("pledgeSubmit").disabled = false;
+        $("pledgeSubmit").textContent = "Pledge";
+        document.querySelectorAll(".chip").forEach(function (chip) {
+          chip.setAttribute("aria-pressed", "false");
+        });
+        $("pledgeSection").scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
 
       var sent = target.closest("[data-sent]");
       if (sent) {
@@ -1383,7 +1456,7 @@
     }
 
     $("lookupEmail").value = recall(STORE_EMAIL);
-    renderCachedRegistry();
+    renderFirstPaint();
     loadRegistry();
   </script>
 </body>

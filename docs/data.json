@@ -1,0 +1,75 @@
+{
+  "items": [
+    {
+      "description": "Panasonic NN-CS89LBYPQ 31L convection steam grill microwave oven",
+      "id": "panasonic-steam-oven-microwave",
+      "image": "https://lioncityco.com/cdn/shop/files/NN-CS89LBYPQ.jpg?v=1720623971",
+      "link": "https://s.shopee.sg/4qCh63pDLa?share_channel_code=1",
+      "name": "Steam Oven Microwave",
+      "price_sgd": "1058.9",
+      "reference_title": "Panasonic NN-CS89LBYPQ 31L Convection Steam Grill Microwave Oven",
+      "room": "Kitchen",
+      "vendor": "shopee.sg"
+    },
+    {
+      "description": "Wine/drinks chiller",
+      "id": "wine-drinks-chiller",
+      "image": "",
+      "link": "",
+      "name": "Wine Chiller",
+      "price_sgd": "",
+      "reference_title": "Wine/drinks chiller",
+      "room": "Dry Pantry",
+      "vendor": ""
+    },
+    {
+      "description": "Dyson V12 Detect Slim Absolute HEPA cordless vacuum",
+      "id": "dyson-v12-slim-detect",
+      "image": "https://dyson-h.assetsadobe2.com/is/image/content/dam/dyson/leap-petite-global/markets/singapore/products/floorcare/sticks/new/V12Nickel-HEPA.png",
+      "link": "https://s.shopee.sg/20sVitUGX7?share_channel_code=1",
+      "name": "Dyson Vacuum",
+      "price_sgd": "798.9",
+      "reference_title": "Dyson V12 Detect Slim Absolute HEPA (Yellow/Nickel) cordless vacuum",
+      "room": "Living Room",
+      "vendor": "shopee.sg"
+    },
+    {
+      "description": "Air purifier",
+      "id": "air-purifier",
+      "image": "",
+      "link": "",
+      "name": "Air Purifier",
+      "price_sgd": "",
+      "reference_title": "Air purifier",
+      "room": "Bedroom",
+      "vendor": ""
+    },
+    {
+      "description": "Google Nest Hub smart display",
+      "id": "google-nest-hub",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Google_Nest_Hub.jpg",
+      "link": "https://s.shopee.sg/5VUDt6XfYO",
+      "name": "Google Nest Hub",
+      "price_sgd": "150",
+      "reference_title": "",
+      "room": "Living Room",
+      "vendor": "shopee.sg"
+    }
+  ],
+  "settings": {
+    "closed": false,
+    "closed_message": "Pledges are closed now, thank you so much.",
+    "couple_names": "Stella & Jia Qi",
+    "headline": "Things for the New Nest",
+    "hero_photo_url": "",
+    "paynow_qr_image_url": "https://stellassx94.github.io/xjq-new-nest/paynow.jpg",
+    "subtext": "Your company is the real gift. But if you would like to chip in toward the new place, here is the easiest way.",
+    "suggested_amounts": [
+      50,
+      100,
+      200,
+      388
+    ],
+    "why_cash": "We are still figuring out what the place needs, so we would rather buy things slowly and properly than end up with three kettles or 100 toilet paper. If you would like to give something, you could contribute some angpao for us to get our wishlist."
+  }
+}

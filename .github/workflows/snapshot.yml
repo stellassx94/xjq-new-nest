@@ -1,0 +1,83 @@
+name: Refresh page snapshot
+
+# Apps Script takes 2-3s to answer even when warm. Everything on the page that
+# is not money or names is therefore mirrored into docs/data.json and served
+# from the same CDN as the page itself, which answers in tens of milliseconds.
+#
+# The live API is still called on every page load and overwrites this, so a
+# stale snapshot only ever affects the first moment of first paint. It is never
+# the source of truth.
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub runs scheduled jobs late under load; that is
+    # fine, nothing depends on this being punctual.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/snapshot.yml"]
+
+# Never let a scheduled run and a manual run push at the same time.
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch registry and strip anything private
+        env:
+          # The repo is public, so the page password lives in Actions secrets
+          # and is passed via --data-urlencode rather than a literal URL.
+          SITE_KEY: ${{ secrets.SITE_KEY }}
+          API_URL: https://script.google.com/macros/s/AKfycbyumQuwmlC48dL_peQWGgcYFpUGdl9xPTx-Y_ZhoW6RyNn3zXVh5mjd8I7u8Bb_0a3K/exec
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SITE_KEY}" ]; then
+            echo "SITE_KEY secret is not set. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          curl -sS --fail --location --get "$API_URL" \
+            --data-urlencode "api=registry" \
+            --data-urlencode "k=$SITE_KEY" \
+            -o /tmp/raw.json
+
+          # A locked or errored response must never overwrite a good snapshot.
+          jq -e '.ok == true and (.registry.items | type == "array")' /tmp/raw.json > /dev/null
+
+          jq -S '{
+            items: .registry.items,
+            settings: (.registry.settings
+                       | del(.paynow_number, .paynow_name, .whatsapp_url))
+          }' /tmp/raw.json > docs/data.json
+
+          # Belt and braces. If the payload ever grows a private field, fail
+          # loudly instead of quietly publishing it to a public repo.
+          for forbidden in totals pledged_sgd guest_email magic_token reference_code paynow_number paynow_name whatsapp_url; do
+            if grep -q "\"$forbidden\"" docs/data.json; then
+              echo "Refusing to publish: found '$forbidden' in the snapshot."
+              exit 1
+            fi
+          done
+
+      - name: Commit only if something actually changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/data.json; then
+            echo "Snapshot unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          git commit -m "Refresh page snapshot"
+          git push

@@ -115,6 +115,20 @@ Then open https://stellassx94.github.io/xjq-new-nest/, make one test pledge to y
 
 Editing `Code.gs` is not enough — Apps Script needs a **new deployment version** (Deploy → Manage deployments → pencil → Version: New version) before the change goes live.
 
+## Why the page is fast now
+
+Apps Script answers in **2–3 seconds** even when its own cache is warm. That is its floor. GitHub Pages answers in **~0.03s**.
+
+So everything that is not money or names is mirrored into `docs/data.json` and served from Pages. The page paints hero, blurb and items almost immediately, then the live API fills in the pledged total and names a couple of seconds later.
+
+**Your sheet edits reach friends immediately regardless** — the live call runs on every page load and overwrites the snapshot. A stale snapshot only affects the first instant of first paint, never what someone ends up seeing.
+
+`docs/data.json` is **generated, never edited by hand.** A GitHub Action refreshes it every 30 minutes and commits only when something actually changed.
+
+**The repo is public**, so the snapshot deliberately contains **no pledged total, no friends' names, no emails, and not your PayNow or WhatsApp numbers** — those are stripped, and the workflow fails rather than publishing them if they ever reappear. It carries only the item list and the page text.
+
+One setup step only you can do: **add the page password as an Actions secret.** Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret** → name `SITE_KEY`, value `xjq-bishan`. Until then the workflow fails with a clear message and the committed snapshot simply stays as it is.
+
 ## Changing the page later
 
 Edit `docs/index.html`, then:
